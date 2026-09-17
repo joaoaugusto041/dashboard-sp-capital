@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # =========================================================
-# 1. CONFIGURAÇÃO
+# CONFIGURAÇÃO
 # =========================================================
 
 st.set_page_config(
@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# 2. BASE DE DADOS
+# BASE
 # =========================================================
 
 @st.cache_data
@@ -53,7 +53,7 @@ def load_data():
 
     df = pd.DataFrame(raw_data)
 
-    lojas_map = {
+    nomes = {
         "ANF": "ANF — Anália Franco",
         "APL": "APL — Paulista",
         "IGT": "IGT — Iguatemi",
@@ -65,15 +65,13 @@ def load_data():
         "TBE": "TBE — Tamboré"
     }
 
-    df["Nome_Loja"] = df["Loja"].map(lojas_map)
+    df["Nome_Loja"] = df["Loja"].map(nomes)
 
-    ordem_semanas = {
+    df["Ordem"] = df["Semana"].map({
         "W36": 1,
         "W37": 2,
         "W38": 3
-    }
-
-    df["Ordem_Semana"] = df["Semana"].map(ordem_semanas)
+    })
 
     return df
 
@@ -81,309 +79,396 @@ def load_data():
 df = load_data()
 
 # =========================================================
-# 3. CSS
+# TÍTULO
 # =========================================================
 
-st.markdown("""
-<style>
+st.title("Evolução Regional — SP Capital")
 
-.main-title {
-    font-size: 30px;
-    font-weight: 700;
-    margin-bottom: 0px;
-}
-
-.subtitle {
-    color: #666;
-    font-size: 15px;
-    margin-bottom: 25px;
-}
-
-.section-title {
-    font-size: 21px;
-    font-weight: 700;
-    margin-top: 25px;
-    margin-bottom: 10px;
-}
-
-.kpi-title {
-    font-size: 13px;
-    color: #666;
-}
-
-.kpi-value {
-    font-size: 27px;
-    font-weight: 700;
-}
-
-.kpi-sub {
-    font-size: 12px;
-    color: #777;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# =========================================================
-# 4. SIDEBAR
-# =========================================================
-
-st.sidebar.title("Filtros")
-
-lojas = sorted(df["Nome_Loja"].unique())
-
-loja_selecionada = st.sidebar.selectbox(
-    "Loja em análise",
-    options=["Todas as lojas"] + lojas
+st.caption(
+    "Acompanhamento semanal dos principais indicadores | YTD 2026"
 )
 
-semanas = ["W36", "W37", "W38"]
+# =========================================================
+# SIDEBAR
+# =========================================================
+
+st.sidebar.header("Filtros")
+
+todas_lojas = sorted(df["Nome_Loja"].unique())
+
+lojas_selecionadas = st.sidebar.multiselect(
+    "Lojas",
+    todas_lojas,
+    default=todas_lojas
+)
 
 semanas_selecionadas = st.sidebar.multiselect(
     "Semanas",
-    options=semanas,
-    default=semanas
+    ["W36", "W37", "W38"],
+    default=["W36", "W37", "W38"]
 )
 
 st.sidebar.divider()
 
-st.sidebar.caption(
-    f"{len(lojas)} lojas disponíveis"
+indicador = st.sidebar.selectbox(
+    "Indicador principal",
+    [
+        "Vendas",
+        "% Base",
+        "Vendas Vs LY",
+        "Fluxo Vs LY",
+        "Conversão Vs LY"
+    ]
 )
 
-st.sidebar.caption(
-    f"{len(semanas_selecionadas)} semanas selecionadas"
-)
-
-# =========================================================
-# 5. FILTRO
-# =========================================================
-
-df_filtered = df[
-    df["Semana"].isin(semanas_selecionadas)
+df_f = df[
+    df["Nome_Loja"].isin(lojas_selecionadas)
+    & df["Semana"].isin(semanas_selecionadas)
 ].copy()
 
-if loja_selecionada != "Todas as lojas":
-    df_filtered = df_filtered[
-        df_filtered["Nome_Loja"] == loja_selecionada
+df_f = df_f.sort_values("Ordem")
+
+# =========================================================
+# MAPA DOS INDICADORES
+# =========================================================
+
+indicadores = {
+    "Vendas": {
+        "coluna": "Vendas",
+        "titulo": "Vendas",
+        "formato": "R$"
+    },
+    "% Base": {
+        "coluna": "% Base",
+        "titulo": "% Base",
+        "formato": "%"
+    },
+    "Vendas Vs LY": {
+        "coluna": "Vendas Vs LY %",
+        "titulo": "Vendas Vs LY",
+        "formato": "%"
+    },
+    "Fluxo Vs LY": {
+        "coluna": "Fluxo Vs LY %",
+        "titulo": "Fluxo Vs LY",
+        "formato": "%"
+    },
+    "Conversão Vs LY": {
+        "coluna": "Conversão Vs LY %",
+        "titulo": "Conversão Vs LY",
+        "formato": "%"
+    }
+}
+
+config = indicadores[indicador]
+
+coluna = config["coluna"]
+
+# =========================================================
+# CARDS
+# =========================================================
+
+if not df_f.empty:
+
+    ultima_semana = df_f["Ordem"].max()
+
+    df_ultima = df_f[
+        df_f["Ordem"] == ultima_semana
     ]
 
-df_filtered = df_filtered.sort_values(
-    ["Ordem_Semana"]
-)
-
-# =========================================================
-# 6. CABEÇALHO
-# =========================================================
-
-st.markdown(
-    '<div class="main-title">EVOLUÇÃO REGIONAL — SP CAPITAL</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">Acompanhamento semanal dos principais indicadores por loja | YTD 2026</div>',
-    unsafe_allow_html=True
-)
-
-# =========================================================
-# 7. RESUMO DA LOJA SELECIONADA
-# =========================================================
-
-if loja_selecionada != "Todas as lojas" and not df_filtered.empty:
-
-    ultima = df_filtered.sort_values("Ordem_Semana").iloc[-1]
-
-    vendas = ultima["Vendas"]
-    base = ultima["% Base"]
-    vendas_ly = ultima["Vendas Vs LY %"]
-    fluxo = ultima["Fluxo Vs LY %"]
-    conversao = ultima["Conversão Vs LY %"]
-
-    st.markdown(
-        f"### {loja_selecionada}"
-    )
-
-    c1, c2, c3, c4, c5 = st.columns(5)
-
-    with c1:
-        st.metric(
-            "Vendas",
-            f"R$ {vendas:,.0f}".replace(",", ".")
-        )
-
-    with c2:
-        st.metric(
-            "% Base",
-            f"{base:.1%}".replace(".", ",")
-        )
-
-    with c3:
-        st.metric(
-            "Vendas Vs LY",
-            "N/A" if pd.isna(vendas_ly)
-            else f"{vendas_ly:+.1%}".replace(".", ",")
-        )
-
-    with c4:
-        st.metric(
-            "Fluxo Vs LY",
-            "N/A" if pd.isna(fluxo)
-            else f"{fluxo:+.1%}".replace(".", ",")
-        )
-
-    with c5:
-        st.metric(
-            "Conversão Vs LY",
-            "N/A" if pd.isna(conversao)
-            else f"{conversao:+.1%}".replace(".", ",")
-        )
-
-# =========================================================
-# 8. VISÃO GERAL — TODAS AS LOJAS
-# =========================================================
-
-if loja_selecionada == "Todas as lojas":
-
-    st.markdown(
-        '<div class="section-title">Visão Geral — Evolução por Loja</div>',
-        unsafe_allow_html=True
-    )
+    c1, c2, c3, c4 = st.columns(4)
 
     # -----------------------------------------------------
-    # VENDAS
+    # TOTAL
     # -----------------------------------------------------
 
-    fig = px.line(
-        df_filtered.sort_values("Ordem_Semana"),
-        x="Semana",
-        y="Vendas",
-        color="Loja",
-        markers=True,
-        hover_data=["Nome_Loja"]
-    )
+    if indicador == "Vendas":
 
-    fig.update_layout(
-        height=430,
-        xaxis_title="Semana",
-        yaxis_title="Vendas (R$)",
-        legend_title="Loja",
-        hovermode="x unified"
-    )
+        valor = df_ultima["Vendas"].sum()
 
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-    # -----------------------------------------------------
-    # INDICADORES VS LY
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">Indicadores Vs LY</div>',
-        unsafe_allow_html=True
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        fig_fluxo = px.line(
-            df_filtered.dropna(subset=["Fluxo Vs LY %"]),
-            x="Semana",
-            y="Fluxo Vs LY %",
-            color="Loja",
-            markers=True,
-            hover_data=["Nome_Loja"]
-        )
-
-        fig_fluxo.add_hline(
-            y=0,
-            line_dash="dash"
-        )
-
-        fig_fluxo.update_layout(
-            height=380,
-            xaxis_title="Semana",
-            yaxis_title="Fluxo Vs LY"
-        )
-
-        st.plotly_chart(
-            fig_fluxo,
-            use_container_width=True
-        )
-
-    with col2:
-
-        fig_conv = px.line(
-            df_filtered.dropna(subset=["Conversão Vs LY %"]),
-            x="Semana",
-            y="Conversão Vs LY %",
-            color="Loja",
-            markers=True,
-            hover_data=["Nome_Loja"]
-        )
-
-        fig_conv.add_hline(
-            y=0,
-            line_dash="dash"
-        )
-
-        fig_conv.update_layout(
-            height=380,
-            xaxis_title="Semana",
-            yaxis_title="Conversão Vs LY"
-        )
-
-        st.plotly_chart(
-            fig_conv,
-            use_container_width=True
-        )
-
-# =========================================================
-# 9. VISÃO DETALHADA DA LOJA
-# =========================================================
-
-else:
-
-    if df_filtered.empty:
-
-        st.warning(
-            "Não existem dados para os filtros selecionados."
+        c1.metric(
+            "Vendas — última semana",
+            f"R$ {valor:,.0f}".replace(",", ".")
         )
 
     else:
 
-        st.markdown(
-            '<div class="section-title">Evolução dos Indicadores</div>',
-            unsafe_allow_html=True
+        valor = df_ultima[coluna].mean()
+
+        if pd.isna(valor):
+
+            c1.metric(
+                config["titulo"],
+                "N/A"
+            )
+
+        else:
+
+            c1.metric(
+                config["titulo"],
+                f"{valor:+.1%}".replace(".", ",")
+            )
+
+    # -----------------------------------------------------
+    # SEMANA
+    # -----------------------------------------------------
+
+    semana_nome = df_ultima["Semana"].iloc[0]
+
+    c2.metric(
+        "Última semana",
+        semana_nome
+    )
+
+    # -----------------------------------------------------
+    # QUANTIDADE DE LOJAS
+    # -----------------------------------------------------
+
+    c3.metric(
+        "Lojas analisadas",
+        df_f["Loja"].nunique()
+    )
+
+    # -----------------------------------------------------
+    # VARIAÇÃO W36 → ÚLTIMA
+    # -----------------------------------------------------
+
+    if len(semanas_selecionadas) >= 2:
+
+        primeira_ordem = min(
+            df_f["Ordem"].unique()
         )
 
-        # -------------------------------------------------
-        # VENDAS
-        # -------------------------------------------------
+        df_primeira = df_f[
+            df_f["Ordem"] == primeira_ordem
+        ]
 
-        st.markdown("#### Vendas")
+        if indicador == "Vendas":
+
+            primeiro = df_primeira["Vendas"].sum()
+            ultimo = df_ultima["Vendas"].sum()
+
+        else:
+
+            primeiro = df_primeira[coluna].mean()
+            ultimo = df_ultima[coluna].mean()
+
+        if primeiro != 0 and not pd.isna(primeiro):
+
+            variacao = ultimo - primeiro
+
+            if indicador == "Vendas":
+
+                c4.metric(
+                    "Variação no período",
+                    f"R$ {variacao:,.0f}".replace(",", ".")
+                )
+
+            else:
+
+                c4.metric(
+                    "Variação no período",
+                    f"{variacao:+.1%}".replace(".", ",")
+                )
+
+# =========================================================
+# GRÁFICO PRINCIPAL
+# =========================================================
+
+st.divider()
+
+st.subheader(
+    f"Evolução semanal — {config['titulo']}"
+)
+
+df_chart = df_f.dropna(
+    subset=[coluna]
+)
+
+if not df_chart.empty:
+
+    fig = px.line(
+        df_chart,
+        x="Semana",
+        y=coluna,
+        color="Loja",
+        markers=True,
+        custom_data=["Nome_Loja"]
+    )
+
+    # -----------------------------------------------------
+    # FORMATAÇÃO
+    # -----------------------------------------------------
+
+    if config["formato"] == "%":
+
+        fig.update_yaxes(
+            tickformat=".1%"
+        )
+
+        fig.update_traces(
+            hovertemplate=
+            "<b>%{customdata[0]}</b><br>"
+            "Semana: %{x}<br>"
+            f"{config['titulo']}: %{{y:.1%}}"
+            "<extra></extra>"
+        )
+
+    else:
+
+        fig.update_yaxes(
+            tickprefix="R$ ",
+            tickformat=",.0f"
+        )
+
+        fig.update_traces(
+            hovertemplate=
+            "<b>%{customdata[0]}</b><br>"
+            "Semana: %{x}<br>"
+            "Vendas: R$ %{y:,.0f}"
+            "<extra></extra>"
+        )
+
+    # Linha zero para indicadores %
+    if config["formato"] == "%":
+
+        fig.add_hline(
+            y=0,
+            line_dash="dash",
+            annotation_text="0%"
+        )
+
+    fig.update_layout(
+        height=520,
+        hovermode="x unified",
+        xaxis_title="",
+        yaxis_title="",
+        legend_title="Lojas",
+        margin=dict(
+            l=20,
+            r=20,
+            t=20,
+            b=20
+        )
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key="grafico_principal"
+    )
+
+else:
+
+    st.info(
+        "Não existem dados para o indicador selecionado."
+    )
+
+# =========================================================
+# TABELA INTERATIVA
+# =========================================================
+
+st.divider()
+
+st.subheader(
+    f"Detalhamento — {config['titulo']}"
+)
+
+# Pivot para colocar as semanas lado a lado
+
+if not df_f.empty:
+
+    tabela = df_f.pivot(
+        index="Nome_Loja",
+        columns="Semana",
+        values=coluna
+    )
+
+    # Ordenação das semanas
+    ordem_colunas = [
+        s for s in ["W36", "W37", "W38"]
+        if s in tabela.columns
+    ]
+
+    tabela = tabela[ordem_colunas]
+
+    # -----------------------------------------------------
+    # FORMATAÇÃO
+    # -----------------------------------------------------
+
+    if config["formato"] == "%":
+
+        tabela_formatada = tabela.style.format(
+            lambda x:
+            "" if pd.isna(x)
+            else f"{x:+.1%}".replace(".", ",")
+        )
+
+    else:
+
+        tabela_formatada = tabela.style.format(
+            lambda x:
+            "" if pd.isna(x)
+            else f"R$ {x:,.0f}".replace(",", ".")
+        )
+
+    st.dataframe(
+        tabela_formatada,
+        use_container_width=True,
+        height=400
+    )
+
+# =========================================================
+# VISÃO MULTI-INDICADORES
+# =========================================================
+
+st.divider()
+
+st.subheader("Evolução dos indicadores")
+
+st.caption(
+    "Selecione uma loja para analisar todos os indicadores simultaneamente."
+)
+
+loja_detalhe = st.selectbox(
+    "Loja para detalhamento",
+    sorted(df_f["Nome_Loja"].unique())
+    if not df_f.empty else []
+)
+
+if loja_detalhe:
+
+    df_loja = df_f[
+        df_f["Nome_Loja"] == loja_detalhe
+    ].sort_values("Ordem")
+
+    col1, col2 = st.columns(2)
+
+    # =====================================================
+    # VENDAS
+    # =====================================================
+
+    with col1:
 
         fig_vendas = px.line(
-            df_filtered,
+            df_loja,
             x="Semana",
             y="Vendas",
-            markers=True,
-            text="Vendas"
+            markers=True
         )
 
         fig_vendas.update_traces(
-            texttemplate="R$ %{text:,.0f}",
-            textposition="top center"
+            hovertemplate=
+            "Semana: %{x}<br>"
+            "Vendas: R$ %{y:,.0f}"
+            "<extra></extra>"
         )
 
         fig_vendas.update_layout(
-            height=350,
+            title="Vendas",
+            height=330,
             xaxis_title="",
-            yaxis_title="R$",
-            showlegend=False
+            yaxis_title=""
         )
 
         st.plotly_chart(
@@ -391,30 +476,28 @@ else:
             use_container_width=True
         )
 
-        # -------------------------------------------------
-        # % BASE
-        # -------------------------------------------------
+    # =====================================================
+    # % BASE
+    # =====================================================
 
-        st.markdown("#### % Base")
+    with col2:
 
         fig_base = px.line(
-            df_filtered,
+            df_loja,
             x="Semana",
             y="% Base",
-            markers=True,
-            text="% Base"
+            markers=True
         )
 
-        fig_base.update_traces(
-            texttemplate="%{text:.1%}",
-            textposition="top center"
+        fig_base.update_yaxes(
+            tickformat=".1%"
         )
 
         fig_base.update_layout(
-            height=300,
+            title="% Base",
+            height=330,
             xaxis_title="",
-            yaxis_title="% Base",
-            showlegend=False
+            yaxis_title=""
         )
 
         st.plotly_chart(
@@ -422,13 +505,15 @@ else:
             use_container_width=True
         )
 
-        # -------------------------------------------------
-        # VENDAS VS LY
-        # -------------------------------------------------
+    col3, col4 = st.columns(2)
 
-        st.markdown("#### Vendas Vs LY")
+    # =====================================================
+    # VENDAS VS LY
+    # =====================================================
 
-        dados = df_filtered.dropna(
+    with col3:
+
+        dados = df_loja.dropna(
             subset=["Vendas Vs LY %"]
         )
 
@@ -438,8 +523,7 @@ else:
                 dados,
                 x="Semana",
                 y="Vendas Vs LY %",
-                markers=True,
-                text="Vendas Vs LY %"
+                markers=True
             )
 
             fig.add_hline(
@@ -447,16 +531,15 @@ else:
                 line_dash="dash"
             )
 
-            fig.update_traces(
-                texttemplate="%{text:.1%}",
-                textposition="top center"
+            fig.update_yaxes(
+                tickformat=".1%"
             )
 
             fig.update_layout(
-                height=300,
+                title="Vendas Vs LY",
+                height=330,
                 xaxis_title="",
-                yaxis_title="Vs LY",
-                showlegend=False
+                yaxis_title=""
             )
 
             st.plotly_chart(
@@ -464,19 +547,13 @@ else:
                 use_container_width=True
             )
 
-        else:
+    # =====================================================
+    # FLUXO
+    # =====================================================
 
-            st.info(
-                "Não há histórico LY disponível para esta loja."
-            )
+    with col4:
 
-        # -------------------------------------------------
-        # FLUXO
-        # -------------------------------------------------
-
-        st.markdown("#### Fluxo Vs LY")
-
-        dados = df_filtered.dropna(
+        dados = df_loja.dropna(
             subset=["Fluxo Vs LY %"]
         )
 
@@ -486,8 +563,7 @@ else:
                 dados,
                 x="Semana",
                 y="Fluxo Vs LY %",
-                markers=True,
-                text="Fluxo Vs LY %"
+                markers=True
             )
 
             fig.add_hline(
@@ -495,16 +571,15 @@ else:
                 line_dash="dash"
             )
 
-            fig.update_traces(
-                texttemplate="%{text:.1%}",
-                textposition="top center"
+            fig.update_yaxes(
+                tickformat=".1%"
             )
 
             fig.update_layout(
-                height=300,
+                title="Fluxo Vs LY",
+                height=330,
                 xaxis_title="",
-                yaxis_title="Vs LY",
-                showlegend=False
+                yaxis_title=""
             )
 
             st.plotly_chart(
@@ -512,115 +587,57 @@ else:
                 use_container_width=True
             )
 
-        # -------------------------------------------------
-        # CONVERSÃO
-        # -------------------------------------------------
+    # =====================================================
+    # CONVERSÃO
+    # =====================================================
 
-        st.markdown("#### Conversão Vs LY")
+    dados = df_loja.dropna(
+        subset=["Conversão Vs LY %"]
+    )
 
-        dados = df_filtered.dropna(
-            subset=["Conversão Vs LY %"]
+    if not dados.empty:
+
+        fig = px.line(
+            dados,
+            x="Semana",
+            y="Conversão Vs LY %",
+            markers=True
         )
 
-        if not dados.empty:
+        fig.add_hline(
+            y=0,
+            line_dash="dash"
+        )
 
-            fig = px.line(
-                dados,
-                x="Semana",
-                y="Conversão Vs LY %",
-                markers=True,
-                text="Conversão Vs LY %"
-            )
+        fig.update_yaxes(
+            tickformat=".1%"
+        )
 
-            fig.add_hline(
-                y=0,
-                line_dash="dash"
-            )
+        fig.update_layout(
+            title="Conversão Vs LY",
+            height=330,
+            xaxis_title="",
+            yaxis_title=""
+        )
 
-            fig.update_traces(
-                texttemplate="%{text:.1%}",
-                textposition="top center"
-            )
-
-            fig.update_layout(
-                height=300,
-                xaxis_title="",
-                yaxis_title="Vs LY",
-                showlegend=False
-            )
-
-            st.plotly_chart(
-                fig,
-                use_container_width=True
-            )
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
 # =========================================================
-# 10. TABELA DE EVOLUÇÃO
+# EXPORTAÇÃO
 # =========================================================
 
 st.divider()
 
-st.markdown(
-    '<div class="section-title">Tabela de Evolução</div>',
-    unsafe_allow_html=True
-)
-
-tabela = df_filtered[
-    [
-        "Nome_Loja",
-        "Semana",
-        "Vendas",
-        "% Base",
-        "Vendas Vs LY %",
-        "Fluxo Vs LY %",
-        "Conversão Vs LY %"
-    ]
-].copy()
-
-tabela.columns = [
-    "Loja",
-    "Semana",
-    "Vendas",
-    "% Base",
-    "Vendas Vs LY",
-    "Fluxo Vs LY",
-    "Conversão Vs LY"
-]
-
-tabela["Vendas"] = tabela["Vendas"].map(
-    lambda x: f"R$ {x:,.0f}".replace(",", ".")
-)
-
-for coluna in [
-    "% Base",
-    "Vendas Vs LY",
-    "Fluxo Vs LY",
-    "Conversão Vs LY"
-]:
-
-    tabela[coluna] = tabela[coluna].apply(
-        lambda x: ""
-        if pd.isna(x)
-        else f"{x:+.1%}".replace(".", ",")
-    )
-
-st.dataframe(
-    tabela,
-    use_container_width=True,
-    hide_index=True
-)
-
-# =========================================================
-# 11. DOWNLOAD
-# =========================================================
-
-csv = df_filtered.to_csv(
+csv = df_f.to_csv(
     index=False
 ).encode("utf-8-sig")
 
 st.download_button(
-    label="Baixar dados filtrados",
-    data=csv,
-    file_name="evolucao_sp_capital.csv",
-    mime="text/csv"
+    "Baixar dados filtrados",
+    csv,
+    "evolucao_sp_capital.csv",
+    "text/csv"
 )
