@@ -51,7 +51,7 @@ def load_data():
     
     lojas_map = {
         "ANF": "ANF - Shopping Anália Franco",
-        "APL": "APL - Paulista (Nova Loja 2026)",
+        "APL": "APL - Paulista",
         "IGT": "IGT - Shopping Iguatemi SP",
         "MRB": "MRB - Shopping Morumbi",
         "SBO": "SBO - Shopping Bourbon Pompéia",
