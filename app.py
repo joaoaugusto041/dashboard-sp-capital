@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 2. BASE DE DADOS OFICIAL (27 REGISTROS)
+# 2. BASE DE DADOS OFICIAL
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
@@ -50,7 +50,6 @@ def load_data():
     
     df = pd.DataFrame(raw_data)
     
-    # Dicionário oficial de Lojas
     lojas_map = {
         "ANF": "ANF - Shopping Anália Franco",
         "APL": "APL - Paulista (Nova Loja 2026)",
@@ -108,39 +107,49 @@ val_top_vendas = df_filtered.groupby("Loja")["Vendas"].sum().max() if not df_fil
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("Total Vendas YTD Setembro", f"R$ {total_vendas:,.0f}".replace(",", "."))
+    st.metric(
+        label="Total Vendas YTD Setembro", 
+        value=f"R$ {total_vendas:,.0f}".replace(",", ".")
+    )
 
 with col2:
-    st.metric("Maior Volume (Top Store)", f"{loja_top_vendas}", f"R$ {val_top_vendas:,.0f}".replace(",", "."))
+    st.metric(
+        label="Maior Volume (Top Store)", 
+        value=f"{loja_top_vendas}", 
+        delta=f"R$ {val_top_vendas:,.0f}".replace(",", ".")
+    )
 
 with col3:
-    anf_growth = "+21,4% Vs LY"
-    st.metric("Destaque Crescimento", "ANF (Anália Franco)", anf_growth)
+    st.metric(
+        label="Destaque Crescimento", 
+        value="ANF (Anália Franco)", 
+        delta="+21,4% Vs LY"
+    )
 
 with col4:
     apl_vendas = df_filtered[df_filtered["Loja"] == "APL"]["Vendas"].sum()
-    st.metric("Inauguração 2026", "APL (Paulista)", f"R$ {apl_vendas:,.0f}".replace(",", "."), delta="Sem Histórico LY", delta_color="normal")
+    st.metric(
+        label="Inauguração 2026 (APL)", 
+        value=f"R$ {apl_vendas:,.0f}".replace(",", "."), 
+        delta="Sem Histórico LY", 
+        delta_color="off"
+    )
 
 st.divider()
 
 # ---------------------------------------------------------
-# 6. ABAS INTERATIVAS (MATRIZ, GRÁFICOS, TABELA, DIAGNÓSTICO)
+# 6. ABAS INTERATIVAS
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "📋 Matriz Power BI (YTD)", 
     "📈 Gráficos Interativos", 
-    "🗃️ Dados Brutos (27 Registros)", 
+    "🗃️ Dados Brutos", 
     "🎯 Diagnóstico da Diretoria"
 ])
 
-# ---------------------------------------------------------
-# ABA 1: MATRIZ CONSOLIDADA ESTILO POWER BI
-# ---------------------------------------------------------
+# ABA 1: MATRIZ
 with tab1:
     st.subheader("Matriz de Desempenho Por Loja e Semana")
-    st.markdown("*Acumulado YTD Setembro consolidado por unidade.*")
-    
-    # Pivot Table para simular o Power BI
     pivot_vendas = df_filtered.pivot_table(
         index=["Loja", "Nome_Loja"], 
         columns="Semana", 
@@ -151,16 +160,13 @@ with tab1:
     pivot_vendas["YTD Setembro"] = pivot_vendas.sum(axis=1)
     pivot_vendas = pivot_vendas.sort_values(by="YTD Setembro", ascending=False)
     
-    # Formatação visual
     st.dataframe(
         pivot_vendas.style.format("R$ {:,.0f}"),
         use_container_width=True
     )
     st.info("💡 **Observação Executiva:** A loja **APL (Paulista)** é uma nova abertura do ano corrente. Por isso, indicadores comparativos Vs LY são indicados como N/A.")
 
-# ---------------------------------------------------------
-# ABA 2: GRÁFICOS INTERATIVOS (PLOTLY)
-# ---------------------------------------------------------
+# ABA 2: GRÁFICOS
 with tab2:
     col_chart1, col_chart2 = st.columns(2)
     
@@ -181,7 +187,6 @@ with tab2:
 
     with col_chart2:
         st.subheader("Matriz de Eficiência: Fluxo Vs Conversão (Vs LY)")
-        # Filtrando lojas que possuem métricas LY (Exclui APL)
         df_ly = df_filtered.dropna(subset=["Fluxo Vs LY %", "Conversão Vs LY %"])
         
         fig_scatter = px.scatter(
@@ -194,20 +199,16 @@ with tab2:
             text="Semana",
             labels={"Fluxo Vs LY %": "Variação de Fluxo (%)", "Conversão Vs LY %": "Variação de Conversão (%)"}
         )
-        # Adiciona linhas de referência de quadrante (0,0)
         fig_scatter.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_scatter.add_vline(x=0, line_dash="dash", line_color="gray")
         fig_scatter.update_layout(height=400)
         st.plotly_chart(fig_scatter, use_container_width=True)
 
-# ---------------------------------------------------------
-# ABA 3: DADOS BRUTOS COM FILTRO E DOWNLOAD
-# ---------------------------------------------------------
+# ABA 3: DADOS BRUTOS
 with tab3:
     st.subheader("Base de Dados Completa")
     st.dataframe(df_filtered, use_container_width=True)
     
-    # Botão para baixar em CSV
     csv = df_filtered.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📥 Baixar Dados em CSV",
@@ -216,12 +217,9 @@ with tab3:
         mime="text/csv"
     )
 
-# ---------------------------------------------------------
-# ABA 4: RELATÓRIO ESTRATÉGICO PARA A DIRETORIA
-# ---------------------------------------------------------
+# ABA 4: DIAGNÓSTICO
 with tab4:
     st.subheader("📌 Diagnóstico da Diretoria — Unidades SP Capital")
-    
     col_d1, col_d2, col_d3 = st.columns(3)
     
     with col_d1:
