@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
 # ---------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA
@@ -14,7 +13,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 2. BASE DE DADOS OFICIAL
+# 2. BASE DE DADOS OFICIAL (27 REGISTROS)
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
@@ -141,32 +140,98 @@ st.divider()
 # 6. ABAS INTERATIVAS
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Matriz Power BI (YTD)", 
+    "📋 Matriz Executiva & Semanal", 
     "📈 Gráficos Interativos", 
     "🗃️ Dados Brutos", 
     "🎯 Diagnóstico da Diretoria"
 ])
 
-# ABA 1: MATRIZ
+# ---------------------------------------------------------
+# ABA 1: MATRIZ EXECUTIVA COMPLETA & EVOLUÇÃO SEMANAL
+# ---------------------------------------------------------
 with tab1:
-    st.subheader("Matriz de Desempenho Por Loja e Semana")
+    st.subheader("1. Matriz de Desempenho Executivo (Consolidado SP)")
+    st.caption("Visão com Vendas, Share de Participação, Fluxo e Conversão Comparativos Vs LY")
+
+    # Construindo Tabela Consolidada com Todos os Indicadores Executivos
+    summary_list = []
+    total_reg_vendas = df_filtered["Vendas"].sum()
+
+    for loja, group in df_filtered.groupby("Nome_Loja"):
+        vendas_tot = group["Vendas"].sum()
+        share = (vendas_tot / total_reg_vendas) if total_reg_vendas > 0 else 0
+        
+        # Tratamento Especial para APL (Paulista)
+        if "APL" in loja:
+            vendas_ly = "Inauguração 2026"
+            fluxo_ly = "N/A"
+            conv_ly = "N/A"
+            status = "🟢 Em Ramp-Up"
+        else:
+            v_ly = group["Vendas Vs LY %"].mean()
+            f_ly = group["Fluxo Vs LY %"].mean()
+            c_ly = group["Conversão Vs LY %"].mean()
+            
+            vendas_ly = f"{v_ly * 100:+.1f}%".replace(".", ",") if pd.notnull(v_ly) else "N/A"
+            fluxo_ly = f"{f_ly * 100:+.1f}%".replace(".", ",") if pd.notnull(f_ly) else "N/A"
+            conv_ly = f"{c_ly * 100:+.1f}%".replace(".", ",") if pd.notnull(c_ly) else "N/A"
+            
+            if c_ly < -0.15:
+                status = "🔴 Alerta Conversão"
+            elif v_ly > 0.10:
+                status = "🟢 Destaque Crescimento"
+            else:
+                status = "🟡 Estável / Operando"
+
+        summary_list.append({
+            "Loja / Unidade": loja,
+            "Vendas Acum. (R$)": f"R$ {vendas_tot:,.0f}".replace(",", "."),
+            "Share (%)": f"{share * 100:.1f}%".replace(".", ","),
+            "Vendas Vs LY": vendas_ly,
+            "Fluxo Vs LY": fluxo_ly,
+            "Conversão Vs LY": conv_ly,
+            "Status Executivo": status
+        })
+
+    df_summary = pd.DataFrame(summary_list)
+    
+    # Ordenar por maior faturamento
+    df_summary["sort_val"] = df_filtered.groupby("Nome_Loja")["Vendas"].sum().values
+    df_summary = df_summary.sort_values(by="sort_val", ascending=False).drop(columns=["sort_val"])
+
+    # Exibição da Tabela Principal
+    st.dataframe(df_summary, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    st.subheader("2. Evolução Semanal de Vendas (R$)")
+    st.caption("Detalhamento semana a semana por unidade (Sem desalinhamento)")
+
+    # Pivot Table limpa e corrigida (sem bug de MultiIndex)
     pivot_vendas = df_filtered.pivot_table(
-        index=["Loja", "Nome_Loja"], 
+        index="Nome_Loja", 
         columns="Semana", 
         values="Vendas", 
         aggfunc="sum",
         fill_value=0
-    )
-    pivot_vendas["YTD Setembro"] = pivot_vendas.sum(axis=1)
-    pivot_vendas = pivot_vendas.sort_values(by="YTD Setembro", ascending=False)
-    
-    st.dataframe(
-        pivot_vendas.style.format("R$ {:,.0f}"),
-        use_container_width=True
-    )
-    st.info("💡 **Observação Executiva:** A loja **APL (Paulista)** é uma nova abertura do ano corrente. Por isso, indicadores comparativos Vs LY são indicados como N/A.")
+    ).reset_index()
 
-# ABA 2: GRÁFICOS
+    semanas_cols = [c for c in pivot_vendas.columns if c != "Nome_Loja"]
+    pivot_vendas["Total YTD Setembro"] = pivot_vendas[semanas_cols].sum(axis=1)
+    pivot_vendas = pivot_vendas.sort_values(by="Total YTD Setembro", ascending=False)
+
+    # Formatar valores monetários para exibição
+    pivot_formatted = pivot_vendas.copy()
+    pivot_formatted["Nome_Loja"] = pivot_formatted["Nome_Loja"]
+    for col in semanas_cols + ["Total YTD Setembro"]:
+        pivot_formatted[col] = pivot_formatted[col].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
+
+    st.dataframe(pivot_formatted, use_container_width=True, hide_index=True)
+
+
+# ---------------------------------------------------------
+# ABA 2: GRÁFICOS INTERATIVOS
+# ---------------------------------------------------------
 with tab2:
     col_chart1, col_chart2 = st.columns(2)
     
@@ -204,10 +269,13 @@ with tab2:
         fig_scatter.update_layout(height=400)
         st.plotly_chart(fig_scatter, use_container_width=True)
 
+
+# ---------------------------------------------------------
 # ABA 3: DADOS BRUTOS
+# ---------------------------------------------------------
 with tab3:
     st.subheader("Base de Dados Completa")
-    st.dataframe(df_filtered, use_container_width=True)
+    st.dataframe(df_filtered, use_container_width=True, hide_index=True)
     
     csv = df_filtered.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -217,7 +285,10 @@ with tab3:
         mime="text/csv"
     )
 
-# ABA 4: DIAGNÓSTICO
+
+# ---------------------------------------------------------
+# ABA 4: DIAGNÓSTICO DA DIRETORIA
+# ---------------------------------------------------------
 with tab4:
     st.subheader("📌 Diagnóstico da Diretoria — Unidades SP Capital")
     col_d1, col_d2, col_d3 = st.columns(3)
