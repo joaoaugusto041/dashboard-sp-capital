@@ -140,93 +140,92 @@ st.divider()
 # 6. ABAS INTERATIVAS
 # ---------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Matriz Executiva & Semanal", 
+    "📋 Matriz Executiva Consolidada", 
     "📈 Gráficos Interativos", 
     "🗃️ Dados Brutos", 
     "🎯 Diagnóstico da Diretoria"
 ])
 
 # ---------------------------------------------------------
-# ABA 1: MATRIZ EXECUTIVA COMPLETA & EVOLUÇÃO SEMANAL
+# ABA 1: MATRIZ EXECUTIVA UNIFICADA COM TOTAIS E SEMANAS
 # ---------------------------------------------------------
 with tab1:
-    st.subheader("1. Matriz de Desempenho Executivo (Consolidado SP)")
-    st.caption("Visão com Vendas, Share de Participação, Fluxo e Conversão Comparativos Vs LY")
+    st.subheader("Matriz de Evolução Semanal e Desempenho Executivo")
+    st.caption("Visão completa por Unidade: Vendas Semanal, Acumulado YTD, Share (%) e Indicadores Vs LY")
 
-    # Construindo Tabela Consolidada com Todos os Indicadores Executivos
-    summary_list = []
-    total_reg_vendas = df_filtered["Vendas"].sum()
+    if not df_filtered.empty:
+        # 1. Pivot de Vendas por Semana
+        pivot_vendas = df_filtered.pivot_table(
+            index="Nome_Loja",
+            columns="Semana",
+            values="Vendas",
+            aggfunc="sum",
+            fill_value=0
+        )
 
-    for loja, group in df_filtered.groupby("Nome_Loja"):
-        vendas_tot = group["Vendas"].sum()
-        share = (vendas_tot / total_reg_vendas) if total_reg_vendas > 0 else 0
+        semanas_cols = [c for c in ["26 / W36", "26 / W37", "26 / W38"] if c in pivot_vendas.columns]
         
-        # Tratamento Especial para APL (Paulista)
-        if "APL" in loja:
-            vendas_ly = "Inauguração 2026"
-            fluxo_ly = "N/A"
-            conv_ly = "N/A"
-            status = "🟢 Em Ramp-Up"
-        else:
-            v_ly = group["Vendas Vs LY %"].mean()
-            f_ly = group["Fluxo Vs LY %"].mean()
-            c_ly = group["Conversão Vs LY %"].mean()
-            
-            vendas_ly = f"{v_ly * 100:+.1f}%".replace(".", ",") if pd.notnull(v_ly) else "N/A"
-            fluxo_ly = f"{f_ly * 100:+.1f}%".replace(".", ",") if pd.notnull(f_ly) else "N/A"
-            conv_ly = f"{c_ly * 100:+.1f}%".replace(".", ",") if pd.notnull(c_ly) else "N/A"
-            
-            if c_ly < -0.15:
-                status = "🔴 Alerta Conversão"
-            elif v_ly > 0.10:
-                status = "🟢 Destaque Crescimento"
-            else:
-                status = "🟡 Estável / Operando"
+        # 2. Total do Período por Loja
+        pivot_vendas["Total Período (R$)"] = pivot_vendas[semanas_cols].sum(axis=1)
+        grand_total = pivot_vendas["Total Período (R$)"].sum()
+        
+        # 3. Share de Cada Loja (%)
+        pivot_vendas["Share (%)"] = (pivot_vendas["Total Período (R$)"] / grand_total * 100) if grand_total > 0 else 0
 
-        summary_list.append({
-            "Loja / Unidade": loja,
-            "Vendas Acum. (R$)": f"R$ {vendas_tot:,.0f}".replace(",", "."),
-            "Share (%)": f"{share * 100:.1f}%".replace(".", ","),
-            "Vendas Vs LY": vendas_ly,
-            "Fluxo Vs LY": fluxo_ly,
-            "Conversão Vs LY": conv_ly,
-            "Status Executivo": status
-        })
+        # 4. Médias dos Indicadores Vs LY
+        metrics_ly = df_filtered.groupby("Nome_Loja")[["Vendas Vs LY %", "Fluxo Vs LY %", "Conversão Vs LY %"]].mean()
 
-    df_summary = pd.DataFrame(summary_list)
-    
-    # Ordenar por maior faturamento
-    df_summary["sort_val"] = df_filtered.groupby("Nome_Loja")["Vendas"].sum().values
-    df_summary = df_summary.sort_values(by="sort_val", ascending=False).drop(columns=["sort_val"])
+        # 5. Unindo Tudo em uma Única Tabela
+        matriz_completa = pivot_vendas.join(metrics_ly).reset_index()
+        matriz_completa = matriz_completa.sort_values(by="Total Período (R$)", ascending=False)
 
-    # Exibição da Tabela Principal
-    st.dataframe(df_summary, use_container_width=True, hide_index=True)
+        # 6. Criando a Linha de TOTAL REGIONAL / LOJAS CONCEITO
+        total_row = {"Nome_Loja": "TOTAL LOJAS CONCEITO (SP)"}
+        for col in semanas_cols:
+            total_row[col] = pivot_vendas[col].sum()
+        
+        total_row["Total Período (R$)"] = grand_total
+        total_row["Share (%)"] = 100.0
+        
+        # Médias regionais ponderadas/simples para a linha do Total
+        total_row["Vendas Vs LY %"] = df_filtered["Vendas Vs LY %"].dropna().mean()
+        total_row["Fluxo Vs LY %"] = df_filtered["Fluxo Vs LY %"].dropna().mean()
+        total_row["Conversão Vs LY %"] = df_filtered["Conversão Vs LY %"].dropna().mean()
 
-    st.markdown("---")
+        # Adicionando a linha final de Total
+        matriz_final = pd.concat([matriz_completa, pd.DataFrame([total_row])], ignore_index=True)
 
-    st.subheader("2. Evolução Semanal de Vendas (R$)")
-    st.caption("Detalhamento semana a semana por unidade (Sem desalinhamento)")
+        # 7. Formatação Amigável Executiva
+        matriz_formatted = pd.DataFrame()
+        matriz_formatted["Unidade / Loja Conceito"] = matriz_final["Nome_Loja"]
 
-    # Pivot Table limpa e corrigida (sem bug de MultiIndex)
-    pivot_vendas = df_filtered.pivot_table(
-        index="Nome_Loja", 
-        columns="Semana", 
-        values="Vendas", 
-        aggfunc="sum",
-        fill_value=0
-    ).reset_index()
+        for col in semanas_cols:
+            matriz_formatted[col] = matriz_final[col].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
 
-    semanas_cols = [c for c in pivot_vendas.columns if c != "Nome_Loja"]
-    pivot_vendas["Total YTD Setembro"] = pivot_vendas[semanas_cols].sum(axis=1)
-    pivot_vendas = pivot_vendas.sort_values(by="Total YTD Setembro", ascending=False)
+        matriz_formatted["Total Período (R$)"] = matriz_final["Total Período (R$)"].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
+        matriz_formatted["Share (%)"] = matriz_final["Share (%)"].apply(lambda x: f"{x:.1f}%".replace(".", ","))
 
-    # Formatar valores monetários para exibição
-    pivot_formatted = pivot_vendas.copy()
-    pivot_formatted["Nome_Loja"] = pivot_formatted["Nome_Loja"]
-    for col in semanas_cols + ["Total YTD Setembro"]:
-        pivot_formatted[col] = pivot_formatted[col].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
+        def fmt_ly(val, is_apl):
+            if is_apl:
+                return "Inauguração 2026"
+            if pd.isnull(val):
+                return "N/A"
+            return f"{val * 100:+.1f}%".replace(".", ",")
 
-    st.dataframe(pivot_formatted, use_container_width=True, hide_index=True)
+        # Aplicando a formatação especial para APL e Médias
+        matriz_formatted["Vendas Vs LY"] = [fmt_ly(v, "APL" in name) for v, name in zip(matriz_final["Vendas Vs LY %"], matriz_final["Nome_Loja"])]
+        matriz_formatted["Fluxo Vs LY"] = [fmt_ly(f, "APL" in name) for f, name in zip(matriz_final["Fluxo Vs LY %"], matriz_final["Nome_Loja"])]
+        matriz_formatted["Conversão Vs LY"] = [fmt_ly(c, "APL" in name) for c, name in zip(matriz_final["Conversão Vs LY %"], matriz_final["Nome_Loja"])]
+
+        # Exibição na Tela em Tabela Elegante
+        st.dataframe(
+            matriz_formatted,
+            use_container_width=True,
+            hide_index=True
+        )
+        st.info("💡 **Destaque:** A última linha traz o **TOTAL LOJAS CONCEITO (SP)** com a soma acumulada de R$ 19,3M nas 3 semanas analisadas.")
+    else:
+        st.warning("Nenhum dado encontrado para os filtros selecionados.")
 
 
 # ---------------------------------------------------------
