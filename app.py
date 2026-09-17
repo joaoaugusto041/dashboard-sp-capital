@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-
+from plotly.subplots import make_subplots
 
 # ============================================================
 # CONFIGURAÇÃO
@@ -15,7 +14,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
 # ============================================================
 # CSS
 # ============================================================
@@ -23,198 +21,164 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-.stApp {
-    background-color: #f8fafc;
-}
+    /* ---------- GERAL ---------- */
 
-.block-container {
-    max-width: 1400px;
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-}
+    .stApp {
+        background: #f8fafc;
+    }
 
-/* HEADER */
+    .block-container {
+        max-width: 1450px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
 
-.main-title {
-    font-size: 30px;
-    font-weight: 800;
-    color: #0f172a;
-    margin-bottom: 3px;
-}
+    h1, h2, h3, h4 {
+        color: #0f172a !important;
+    }
 
-.subtitle {
-    color: #64748b;
-    font-size: 14px;
-    font-weight: 500;
-}
+    /* ---------- HEADER ---------- */
 
-/* CARDS */
+    .header-box {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 24px 28px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+    }
 
-.kpi-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 20px;
-    min-height: 108px;
-    box-shadow: 0 1px 2px rgba(15,23,42,.04);
-}
+    .header-title {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 4px;
+    }
 
-.kpi-label {
-    font-size: 11px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: .07em;
-}
+    .header-subtitle {
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 500;
+    }
 
-.kpi-value {
-    font-size: 25px;
-    font-weight: 800;
-    color: #0f172a;
-    margin-top: 8px;
-}
+    .info-banner {
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #3730a3;
+        border-radius: 9px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        margin-top: 18px;
+    }
 
-.kpi-sub {
-    font-size: 12px;
-    color: #64748b;
-    margin-top: 3px;
-}
+    /* ---------- KPI ---------- */
 
-/* BANNER */
+    .kpi-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 18px 20px;
+        min-height: 115px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+    }
 
-.info-banner {
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    color: #3730a3;
-    padding: 11px 15px;
-    border-radius: 9px;
-    font-size: 13px;
-    font-weight: 500;
-}
+    .kpi-label {
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+    }
 
-/* SECTION */
+    .kpi-value {
+        color: #0f172a;
+        font-size: 25px;
+        font-weight: 800;
+        margin-top: 8px;
+    }
 
-.section-title {
-    font-size: 18px;
-    font-weight: 800;
-    color: #0f172a;
-    margin-top: 8px;
-    margin-bottom: 4px;
-}
+    .kpi-detail {
+        color: #64748b;
+        font-size: 12px;
+        margin-top: 3px;
+        font-weight: 500;
+    }
 
-.section-subtitle {
-    color: #64748b;
-    font-size: 13px;
-    margin-bottom: 15px;
-}
+    .positive {
+        color: #059669 !important;
+    }
 
-/* MATRIX */
+    .negative {
+        color: #e11d48 !important;
+    }
 
-.matrix-wrapper {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    overflow-x: auto;
-    box-shadow: 0 1px 2px rgba(15,23,42,.04);
-}
+    .neutral {
+        color: #475569 !important;
+    }
 
-.matrix-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    min-width: 850px;
-}
+    /* ---------- SEÇÕES ---------- */
 
-.matrix-table th {
-    background: #1e293b;
-    color: white;
-    padding: 13px 16px;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: right;
-    border-bottom: 2px solid #0f172a;
-}
+    .section-title {
+        font-size: 19px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 8px;
+        margin-bottom: 3px;
+    }
 
-.matrix-table th:first-child {
-    text-align: left;
-}
+    .section-subtitle {
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 14px;
+    }
 
-.matrix-table td {
-    padding: 9px 16px;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 13px;
-}
+    /* ---------- MATRIZ ---------- */
 
-.matrix-table td:not(:first-child) {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-}
+    .matrix-wrapper {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+    }
 
-.matrix-table tbody tr:not(.store-row):hover {
-    background: #f8fafc;
-}
+    .store-name {
+        font-weight: 800;
+        color: #0f172a;
+    }
 
-.store-row td {
-    background: #f1f5f9;
-    color: #0f172a;
-    font-weight: 700;
-    padding: 10px 16px;
-    border-top: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
-}
+    .new-store {
+        background: #eff6ff;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 10px;
+        font-weight: 700;
+    }
 
-.metric-name {
-    color: #475569;
-    font-weight: 500;
-}
+    /* ---------- CONTROLES ---------- */
 
-.ytd {
-    background: #fafafa;
-    font-weight: 700;
-    color: #0f172a;
-}
+    div[data-testid="stSelectbox"] label,
+    div[data-testid="stMultiSelect"] label {
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        color: #475569 !important;
+    }
 
-.positive {
-    color: #059669;
-    font-weight: 700;
-}
+    /* ---------- BOTÕES ---------- */
 
-.negative {
-    color: #e11d48;
-    font-weight: 700;
-}
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 600;
+    }
 
-.neutral {
-    color: #475569;
-    font-weight: 600;
-}
+    /* ---------- TABS ---------- */
 
-.na {
-    color: #94a3b8;
-    font-weight: 400;
-}
-
-.new-store {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 3px 8px;
-    border-radius: 5px;
-    background: #eff6ff;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .03em;
-}
-
-/* STREAMLIT */
-
-div[data-testid="stMetric"] {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 15px;
-}
+    button[data-baseweb="tab"] {
+        font-weight: 700;
+    }
 
 </style>
 """, unsafe_allow_html=True)
@@ -225,168 +189,185 @@ div[data-testid="stMetric"] {
 # ============================================================
 
 dados = [
-    ["ANF", "ANF — SHOPPING ANÁLIA FRANCO", False,
-     994493, 1034280, 256394,
-     0.071, 0.210, -0.029,
-     0.169, 0.275, 0.161,
-     0.053, 0.232, 0.218,
-     0.022, -0.071, -0.128,
-     2285168, 0.116, 0.214, 0.149, -0.039],
 
-    ["APL", "APL — PAULISTA", True,
-     1058906, 787733, 353081,
-     0.094, -0.202, 0.026,
-     None, None, None,
-     None, None, None,
-     None, None, None,
-     2199720, 0.112, None, None, None],
+    # ANF
+    ["ANF", "ANF — SHOPPING ANÁLIA FRANCO", "W36", 994493, 0.071, 0.169, 0.053, 0.022, False],
+    ["ANF", "ANF — SHOPPING ANÁLIA FRANCO", "W37", 1034280, 0.210, 0.275, 0.232, -0.071, False],
+    ["ANF", "ANF — SHOPPING ANÁLIA FRANCO", "W38", 256394, -0.029, 0.161, 0.218, -0.128, False],
 
-    ["SCN", "SCN — SHOPPING CENTER NORTE", False,
-     1676354, 1807131, 478941,
-     0.010, 0.075, -0.161,
-     -0.063, -0.008, -0.084,
-     -0.134, -0.021, -0.138,
-     0.090, -0.016, 0.072,
-     3962426, 0.013, -0.042, -0.086, 0.039],
+    # APL
+    ["APL", "APL — PAULISTA", "W36", 1058906, 0.094, None, None, None, True],
+    ["APL", "APL — PAULISTA", "W37", 787733, -0.202, None, None, None, True],
+    ["APL", "APL — PAULISTA", "W38", 353081, 0.026, None, None, None, True],
 
-    ["MRB", "MRB — SHOPPING MORUMBI", False,
-     1439788, 1448346, 471330,
-     -0.079, 0.047, 0.033,
-     -0.108, -0.104, -0.061,
-     0.003, 0.057, 0.047,
-     -0.048, -0.116, -0.065,
-     3359464, -0.021, -0.091, 0.036, -0.076],
+    # SCN
+    ["SCN", "SCN — SHOPPING CENTER NORTE", "W36", 1676354, 0.010, -0.063, -0.134, 0.090, False],
+    ["SCN", "SCN — SHOPPING CENTER NORTE", "W37", 1807131, 0.075, -0.008, -0.021, -0.016, False],
+    ["SCN", "SCN — SHOPPING CENTER NORTE", "W38", 478941, -0.161, -0.084, -0.138, 0.072, False],
 
-    ["SCS", "SCS — PARK SHOPPING SÃO CAETANO", False,
-     589146, 608027, 148215,
-     -0.039, 0.036, -0.044,
-     0.123, 0.112, 0.156,
-     -0.022, 0.166, 0.149,
-     0.015, -0.116, -0.079,
-     1345387, -0.007, 0.122, 0.079, -0.058],
+    # MRB
+    ["MRB", "MRB — SHOPPING MORUMBI", "W36", 1439788, -0.079, -0.108, 0.003, -0.048, False],
+    ["MRB", "MRB — SHOPPING MORUMBI", "W37", 1448346, 0.047, -0.104, 0.057, -0.116, False],
+    ["MRB", "MRB — SHOPPING MORUMBI", "W38", 471330, 0.033, -0.061, 0.047, -0.065, False],
 
-    ["SPE", "SPE — SHOPPING ELDORADO", False,
-     673999, 676235, 203512,
-     -0.298, -0.195, -0.312,
-     -0.053, -0.031, -0.093,
-     -0.073, 0.040, -0.002,
-     0.083, -0.024, -0.005,
-     1553746, -0.248, -0.052, -0.012, 0.018],
+    # SCS
+    ["SCS", "SCS — PARK SHOPPING SÃO CAETANO", "W36", 589146, -0.039, 0.123, -0.022, 0.015, False],
+    ["SCS", "SCS — PARK SHOPPING SÃO CAETANO", "W37", 608027, 0.036, 0.112, 0.166, -0.116, False],
+    ["SCS", "SCS — PARK SHOPPING SÃO CAETANO", "W38", 148215, -0.044, 0.156, 0.149, -0.079, False],
 
-    ["TBE", "TBE — SHOPPING TAMBORÉ", False,
-     851884, 883374, 240063,
-     -0.106, -0.063, -0.184,
-     0.043, 0.087, -0.020,
-     0.066, 0.249, 0.154,
-     0.025, -0.087, -0.100,
-     1975321, -0.101, 0.051, 0.156, -0.054],
+    # SPE
+    ["SPE", "SPE — SHOPPING ELDORADO", "W36", 673999, -0.298, -0.053, -0.073, 0.083, False],
+    ["SPE", "SPE — SHOPPING ELDORADO", "W37", 676235, -0.195, -0.031, 0.040, -0.024, False],
+    ["SPE", "SPE — SHOPPING ELDORADO", "W38", 203512, -0.312, -0.093, -0.002, -0.005, False],
 
-    ["IGT", "IGT — SHOPPING IGUATEMI SP", False,
-     601414, 600206, 228348,
-     -0.124, -0.002, -0.223,
-     -0.173, -0.182, -0.085,
-     -0.263, -0.250, -0.153,
-     0.212, 0.066, 0.087,
-     1429968, -0.116, -0.158, -0.222, 0.122],
+    # TBE
+    ["TBE", "TBE — SHOPPING TAMBORÉ", "W36", 851884, -0.106, 0.043, 0.066, 0.025, False],
+    ["TBE", "TBE — SHOPPING TAMBORÉ", "W37", 883374, -0.063, 0.087, 0.249, -0.087, False],
+    ["TBE", "TBE — SHOPPING TAMBORÉ", "W38", 240063, -0.184, -0.020, 0.154, -0.100, False],
 
-    ["SBO", "SBO — SHOPPING BOURBON POMPÉIA", False,
-     531865, 546099, 158404,
-     -0.202, -0.211, -0.243,
-     -0.329, -0.264, -0.197,
-     0.183, 0.231, 0.197,
-     -0.395, -0.380, -0.385,
-     1236368, -0.218, -0.283, 0.203, -0.387]
+    # IGT
+    ["IGT", "IGT — SHOPPING IGUATEMI SP", "W36", 601414, -0.124, -0.173, -0.263, 0.212, False],
+    ["IGT", "IGT — SHOPPING IGUATEMI SP", "W37", 600206, -0.002, -0.182, -0.250, 0.066, False],
+    ["IGT", "IGT — SHOPPING IGUATEMI SP", "W38", 228348, -0.223, -0.085, -0.153, 0.087, False],
+
+    # SBO
+    ["SBO", "SBO — SHOPPING BOURBON POMPÉIA", "W36", 531865, -0.202, -0.329, 0.183, -0.395, False],
+    ["SBO", "SBO — SHOPPING BOURBON POMPÉIA", "W37", 546099, -0.211, -0.264, 0.231, -0.380, False],
+    ["SBO", "SBO — SHOPPING BOURBON POMPÉIA", "W38", 158404, -0.243, -0.197, 0.197, -0.385, False],
 ]
 
+df = pd.DataFrame(
+    dados,
+    columns=[
+        "Loja",
+        "Nome",
+        "Semana",
+        "Vendas",
+        "% Base",
+        "Vendas Vs LY",
+        "Fluxo Vs LY",
+        "Conversão Vs LY",
+        "Nova"
+    ]
+)
 
-columns = [
-    "ID",
-    "LOJA",
-    "NOVA",
-
-    "VENDAS_W36",
-    "VENDAS_W37",
-    "VENDAS_W38",
-
-    "BASE_W36",
-    "BASE_W37",
-    "BASE_W38",
-
-    "VENDAS_LY_W36",
-    "VENDAS_LY_W37",
-    "VENDAS_LY_W38",
-
-    "FLUXO_LY_W36",
-    "FLUXO_LY_W37",
-    "FLUXO_LY_W38",
-
-    "CONVERSAO_LY_W36",
-    "CONVERSAO_LY_W37",
-    "CONVERSAO_LY_W38",
-
-    "VENDAS_YTD",
-    "BASE_YTD",
-    "VENDAS_LY_YTD",
-    "FLUXO_LY_YTD",
-    "CONVERSAO_LY_YTD"
+ordem_lojas = [
+    "ANF", "APL", "SCN", "MRB",
+    "SCS", "SPE", "TBE", "IGT", "SBO"
 ]
 
-df = pd.DataFrame(dados, columns=columns)
+ordem_semanas = ["W36", "W37", "W38"]
+
+df["Semana"] = pd.Categorical(
+    df["Semana"],
+    categories=ordem_semanas,
+    ordered=True
+)
 
 
 # ============================================================
-# FORMATAÇÃO
+# FUNÇÕES
 # ============================================================
 
-def fmt_number(value):
-    if pd.isna(value):
+def dinheiro(valor):
+    if pd.isna(valor):
         return "N/A"
 
+    return f"R$ {valor:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def numero(valor):
+    if pd.isna(valor):
+        return "N/A"
+
+    return f"{valor:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def percentual(valor):
+    if pd.isna(valor):
+        return "N/A"
+
+    sinal = "+" if valor > 0 else ""
+
     return (
-        f"{value:,.0f}"
-        .replace(",", "X")
+        f"{sinal}{valor * 100:.2f}%"
         .replace(".", ",")
-        .replace("X", ".")
     )
 
 
-def fmt_pct(value, signed=False):
-
-    if pd.isna(value):
+def percentual_simples(valor):
+    if pd.isna(valor):
         return "N/A"
 
-    if signed:
-        return f"{value:+.2%}".replace(".", ",")
-
-    return f"{value:.2%}".replace(".", ",")
+    return f"{valor * 100:.2f}%".replace(".", ",")
 
 
-def pct_class(value):
+def classe_percentual(valor):
+    if pd.isna(valor):
+        return "neutral"
 
-    if pd.isna(value):
-        return "na"
-
-    if value > 0:
+    if valor > 0:
         return "positive"
 
-    if value < 0:
+    if valor < 0:
         return "negative"
 
     return "neutral"
 
 
-def fmt_money(value):
+# ============================================================
+# SIDEBAR
+# ============================================================
 
-    if pd.isna(value):
-        return "N/A"
+with st.sidebar:
 
-    return (
-        "R$ "
-        + f"{value:,.0f}"
-        .replace(",", "X")
-        .replace(".", ",")
-        .replace("X", ".")
+    st.markdown("### 🔎 Filtros")
+
+    lojas_selecionadas = st.multiselect(
+        "Lojas",
+        options=ordem_lojas,
+        default=ordem_lojas,
+        format_func=lambda x: x
     )
+
+    semanas_selecionadas = st.multiselect(
+        "Semanas",
+        options=ordem_semanas,
+        default=ordem_semanas
+    )
+
+    st.divider()
+
+    indicador = st.selectbox(
+        "Indicador para análise",
+        [
+            "Vendas",
+            "% Base",
+            "Vendas Vs LY",
+            "Fluxo Vs LY",
+            "Conversão Vs LY"
+        ]
+    )
+
+    st.divider()
+
+    st.caption(
+        "Cada registro representa uma semana por loja."
+    )
+
+
+# ============================================================
+# FILTRO PRINCIPAL
+# ============================================================
+
+df_filtrado = df[
+    df["Loja"].isin(lojas_selecionadas) &
+    df["Semana"].isin(semanas_selecionadas)
+].copy()
+
+df_filtrado = df_filtrado.sort_values(
+    ["Loja", "Semana"]
+)
 
 
 # ============================================================
@@ -394,197 +375,124 @@ def fmt_money(value):
 # ============================================================
 
 st.markdown("""
-<div style="
-background:white;
-border:1px solid #e2e8f0;
-border-radius:12px;
-padding:22px;
-margin-bottom:16px;
-">
+<div class="header-box">
 
-<div class="main-title">
-Matriz de Performance — SP Capital
-</div>
+    <div class="header-title">
+        Matriz de Performance — SP Capital
+    </div>
 
-<div class="subtitle">
-Visão tabular por loja e sub-métricas operacionais · W36 a W38
-</div>
+    <div class="header-subtitle">
+        Visão tabular por loja e sub-métricas operacionais · W36 a W38
+    </div>
 
-</div>
-""", unsafe_allow_html=True)
+    <div class="info-banner">
+        <strong>APL — Paulista:</strong>
+        inaugurada em 2026. Comparativos Vs LY não se aplicam.
+    </div>
 
-
-st.markdown("""
-<div class="info-banner">
-<strong>APL — Paulista:</strong>
-inaugurada em 2026. Comparativos Vs LY não se aplicam.
 </div>
 """, unsafe_allow_html=True)
 
-st.write("")
-
 
 # ============================================================
-# FILTROS
+# KPI
 # ============================================================
 
-col1, col2, col3 = st.columns([1.5, 2.2, 1.3])
+vendas_total = df_filtrado["Vendas"].sum()
 
-with col1:
+# YTD completo para lojas selecionadas
+df_ytd = df[
+    df["Loja"].isin(lojas_selecionadas)
+].copy()
 
-    busca = st.text_input(
-        "Buscar loja",
-        placeholder="Código ou nome..."
-    )
+vendas_por_loja = (
+    df_ytd.groupby("Loja")["Vendas"]
+    .sum()
+    .sort_values(ascending=False)
+)
 
-with col2:
-
-    lojas_selecionadas = st.multiselect(
-        "Lojas",
-        options=df["ID"].tolist(),
-        default=df["ID"].tolist(),
-        format_func=lambda x: x
-    )
-
-with col3:
-
-    modo = st.radio(
-        "Visualização",
-        ["Matriz", "Análises"],
-        horizontal=True
-    )
-
-
-# ============================================================
-# FILTRO
-# ============================================================
-
-df_filtrado = df.copy()
-
-if busca:
-
-    termo = busca.lower()
-
-    df_filtrado = df_filtrado[
-        df_filtrado["ID"].str.lower().str.contains(termo) |
-        df_filtrado["LOJA"].str.lower().str.contains(termo)
-    ]
-
-if lojas_selecionadas:
-
-    df_filtrado = df_filtrado[
-        df_filtrado["ID"].isin(lojas_selecionadas)
-    ]
-
+if len(vendas_por_loja) > 0:
+    maior_volume_loja = vendas_por_loja.index[0]
+    maior_volume_valor = vendas_por_loja.iloc[0]
 else:
+    maior_volume_loja = "-"
+    maior_volume_valor = 0
 
-    df_filtrado = df.iloc[0:0]
 
+# Crescimento YTD
+crescimento_ytd = (
+    df_ytd.groupby("Loja")["Vendas Vs LY"]
+    .mean()
+    .dropna()
+)
 
-# ============================================================
-# KPIs
-# ============================================================
-
-total_vendas = df_filtrado["VENDAS_YTD"].sum()
-
-if len(df_filtrado):
-
-    top_store = df_filtrado.loc[
-        df_filtrado["VENDAS_YTD"].idxmax()
-    ]
-
+if len(crescimento_ytd) > 0:
+    maior_crescimento_loja = crescimento_ytd.idxmax()
+    maior_crescimento_valor = crescimento_ytd.max()
 else:
+    maior_crescimento_loja = "-"
+    maior_crescimento_valor = None
 
-    top_store = None
+
+# APL
+apl_vendas = df[
+    df["Loja"] == "APL"
+]["Vendas"].sum()
 
 
 c1, c2, c3, c4 = st.columns(4)
 
-
 with c1:
-
     st.markdown(f"""
     <div class="kpi-card">
-
-        <div class="kpi-label">
-            Vendas Totais Regional
+        <div class="kpi-label">Vendas Totais Regional</div>
+        <div class="kpi-value">{dinheiro(vendas_total)}</div>
+        <div class="kpi-detail">
+            {len(lojas_selecionadas)} lojas selecionadas
         </div>
-
-        <div class="kpi-value">
-            {fmt_money(total_vendas)}
-        </div>
-
-        <div class="kpi-sub">
-            Lojas selecionadas · YTD
-        </div>
-
     </div>
     """, unsafe_allow_html=True)
 
-
 with c2:
-
-    if top_store is not None:
-
-        st.markdown(f"""
-        <div class="kpi-card">
-
-            <div class="kpi-label">
-                Maior Volume
-            </div>
-
-            <div class="kpi-value">
-                {top_store["ID"]}
-            </div>
-
-            <div class="kpi-sub">
-                {fmt_money(top_store["VENDAS_YTD"])}
-            </div>
-
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Maior Volume</div>
+        <div class="kpi-value">{maior_volume_loja}</div>
+        <div class="kpi-detail">
+            {dinheiro(maior_volume_valor)}
         </div>
-        """, unsafe_allow_html=True)
-
+    </div>
+    """, unsafe_allow_html=True)
 
 with c3:
 
-    st.markdown("""
-    <div class="kpi-card">
-
-        <div class="kpi-label">
-            Maior Crescimento Vs LY
-        </div>
-
-        <div class="kpi-value">
-            ANF
-        </div>
-
-        <div class="kpi-sub">
-            +21,40% YTD Vs LY
-        </div>
-
-    </div>
-    """, unsafe_allow_html=True)
-
-
-with c4:
-
-    apl = df[df["ID"] == "APL"].iloc[0]
+    if maior_crescimento_valor is not None:
+        crescimento_texto = percentual(maior_crescimento_valor)
+        classe = classe_percentual(maior_crescimento_valor)
+    else:
+        crescimento_texto = "N/A"
+        classe = "neutral"
 
     st.markdown(f"""
     <div class="kpi-card">
-
-        <div class="kpi-label">
-            Inauguração 2026
+        <div class="kpi-label">Maior Crescimento Vs LY</div>
+        <div class="kpi-value">{maior_crescimento_loja}</div>
+        <div class="kpi-detail {classe}">
+            {crescimento_texto} YTD Vs LY
         </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        <div class="kpi-value" style="color:#0369a1;">
+with c4:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Inauguração 2026</div>
+        <div class="kpi-value" style="color:#0369a1">
             APL
         </div>
-
-        <div class="kpi-sub">
-            {fmt_money(apl["VENDAS_YTD"])}
+        <div class="kpi-detail">
+            {dinheiro(apl_vendas)}
         </div>
-
     </div>
     """, unsafe_allow_html=True)
 
@@ -593,10 +501,19 @@ st.write("")
 
 
 # ============================================================
-# MATRIZ
+# TABS
 # ============================================================
 
-if modo == "Matriz":
+tab_matriz, tab_analises = st.tabs(
+    ["▦ Matriz", "⌁ Análises"]
+)
+
+
+# ============================================================
+# TAB MATRIZ
+# ============================================================
+
+with tab_matriz:
 
     st.markdown(
         '<div class="section-title">Matriz de Performance</div>',
@@ -610,211 +527,240 @@ if modo == "Matriz":
         unsafe_allow_html=True
     )
 
-    if len(df_filtrado) == 0:
+    if df_filtrado.empty:
 
-        st.warning(
-            "Nenhuma loja encontrada com os filtros selecionados."
-        )
+        st.info("Nenhum dado encontrado para os filtros selecionados.")
 
     else:
 
-        # ====================================================
-        # CONSTRUÇÃO DA MATRIZ
-        # ====================================================
+        # ----------------------------------------------------
+        # Construção da matriz
+        # ----------------------------------------------------
 
-        linhas = []
+        semanas_visiveis = [
+            s for s in ordem_semanas
+            if s in semanas_selecionadas
+        ]
 
-        for _, row in df_filtrado.iterrows():
+        colunas = ["Loja / Métrica"] + semanas_visiveis + ["YTD"]
 
-            badge = ""
+        tabela_html = """
+        <div class="matrix-wrapper">
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            font-size:13px;
+        ">
+        <thead>
+        <tr style="
+            background:#1e293b;
+            color:white;
+        ">
+        """
 
-            if row["NOVA"]:
+        for coluna in colunas:
 
-                badge = """
-                <span class="new-store">
+            alinhamento = "left" if coluna == "Loja / Métrica" else "right"
+
+            tabela_html += f"""
+            <th style="
+                padding:13px 18px;
+                text-align:{alinhamento};
+                font-size:11px;
+                font-weight:700;
+                letter-spacing:.06em;
+                text-transform:uppercase;
+                border-bottom:2px solid #0f172a;
+            ">
+                {coluna}
+            </th>
+            """
+
+        tabela_html += "</tr></thead><tbody>"
+
+        # ----------------------------------------------------
+        # Uma seção para cada loja
+        # ----------------------------------------------------
+
+        for loja in ordem_lojas:
+
+            if loja not in lojas_selecionadas:
+                continue
+
+            dados_loja = df_ytd[
+                df_ytd["Loja"] == loja
+            ].sort_values("Semana")
+
+            if dados_loja.empty:
+                continue
+
+            nome = dados_loja["Nome"].iloc[0]
+            nova = bool(dados_loja["Nova"].iloc[0])
+
+            tabela_html += """
+            <tr>
+                <td colspan="999" style="
+                    background:#f1f5f9;
+                    padding:11px 18px;
+                    border-top:1px solid #e2e8f0;
+                    border-bottom:1px solid #e2e8f0;
+                ">
+            """
+
+            tabela_html += f"""
+                <span style="
+                    font-weight:800;
+                    color:#0f172a;
+                ">
+                    {nome}
+                </span>
+            """
+
+            if nova:
+                tabela_html += """
+                <span style="
+                    margin-left:10px;
+                    background:#eff6ff;
+                    color:#0369a1;
+                    border:1px solid #bae6fd;
+                    border-radius:6px;
+                    padding:3px 8px;
+                    font-size:10px;
+                    font-weight:700;
+                ">
                     INAUGURAÇÃO 2026 · SEM LY
                 </span>
                 """
 
-            # Loja
-            linhas.append(f"""
-            <tr class="store-row">
-                <td colspan="5">
-                    {row["LOJA"]}
-                    {badge}
-                </td>
-            </tr>
-            """)
+            tabela_html += "</td></tr>"
 
-            # Vendas
-            linhas.append(f"""
-            <tr>
-                <td class="metric-name">Vendas</td>
-                <td>{fmt_number(row["VENDAS_W36"])}</td>
-                <td>{fmt_number(row["VENDAS_W37"])}</td>
-                <td>{fmt_number(row["VENDAS_W38"])}</td>
-                <td class="ytd">{fmt_number(row["VENDAS_YTD"])}</td>
-            </tr>
-            """)
+            # ------------------------------------------------
+            # Indicadores
+            # ------------------------------------------------
 
-            # Base
-            linhas.append(f"""
-            <tr>
-                <td class="metric-name">% Base</td>
-                <td>{fmt_pct(row["BASE_W36"])}</td>
-                <td>{fmt_pct(row["BASE_W37"])}</td>
-                <td>{fmt_pct(row["BASE_W38"])}</td>
-                <td class="ytd">{fmt_pct(row["BASE_YTD"])}</td>
-            </tr>
-            """)
-
-            # Vendas LY
-            valores = [
-                row["VENDAS_LY_W36"],
-                row["VENDAS_LY_W37"],
-                row["VENDAS_LY_W38"],
-                row["VENDAS_LY_YTD"]
+            indicadores = [
+                ("Vendas", "Vendas", "money"),
+                ("% Base", "% Base", "percent_simple"),
+                ("Vendas Vs LY %", "Vendas Vs LY", "percent"),
+                ("Fluxo Vs LY %", "Fluxo Vs LY", "percent"),
+                ("Conversão Vs LY %", "Conversão Vs LY", "percent"),
             ]
 
-            html_cells = ""
+            for nome_indicador, coluna_df, formato in indicadores:
 
-            for i, value in enumerate(valores):
+                tabela_html += "<tr>"
 
-                classe = pct_class(value)
-
-                if i == 3:
-                    classe += " ytd"
-
-                html_cells += f"""
-                <td class="{classe}">
-                    {fmt_pct(value, signed=True)}
+                tabela_html += f"""
+                <td style="
+                    padding:9px 18px 9px 34px;
+                    color:#475569;
+                    font-weight:500;
+                    border-bottom:1px solid #f1f5f9;
+                ">
+                    {nome_indicador}
                 </td>
                 """
 
-            linhas.append(
-                f"""
-                <tr>
-                    <td class="metric-name">
-                        Vendas Vs LY %
+                for semana in semanas_visiveis:
+
+                    linha = dados_loja[
+                        dados_loja["Semana"] == semana
+                    ]
+
+                    if linha.empty:
+                        valor = None
+                    else:
+                        valor = linha.iloc[0][coluna_df]
+
+                    if formato == "money":
+                        texto = numero(valor)
+
+                    elif formato == "percent_simple":
+                        texto = percentual_simples(valor)
+
+                    else:
+                        texto = percentual(valor)
+
+                    classe = ""
+
+                    if formato == "percent":
+
+                        if pd.notna(valor):
+
+                            if valor > 0:
+                                classe = "color:#059669;font-weight:700;"
+
+                            elif valor < 0:
+                                classe = "color:#e11d48;font-weight:700;"
+
+                            else:
+                                classe = "color:#475569;font-weight:600;"
+
+                    elif pd.isna(valor):
+
+                        classe = "color:#94a3b8;"
+
+                    tabela_html += f"""
+                    <td style="
+                        padding:9px 18px;
+                        text-align:right;
+                        font-variant-numeric:tabular-nums;
+                        border-bottom:1px solid #f1f5f9;
+                        {classe}
+                    ">
+                        {texto}
                     </td>
-                    {html_cells}
-                </tr>
-                """
-            )
+                    """
 
-            # Fluxo LY
-            valores = [
-                row["FLUXO_LY_W36"],
-                row["FLUXO_LY_W37"],
-                row["FLUXO_LY_W38"],
-                row["FLUXO_LY_YTD"]
-            ]
+                # YTD
+                if formato == "money":
 
-            html_cells = ""
+                    ytd = dados_loja["Vendas"].sum()
+                    texto_ytd = numero(ytd)
 
-            for i, value in enumerate(valores):
+                elif formato == "percent_simple":
 
-                classe = pct_class(value)
+                    ytd = dados_loja["% Base"].mean()
+                    texto_ytd = percentual_simples(ytd)
 
-                if i == 3:
-                    classe += " ytd"
+                else:
 
-                html_cells += f"""
-                <td class="{classe}">
-                    {fmt_pct(value, signed=True)}
+                    valores = dados_loja[coluna_df].dropna()
+
+                    if len(valores) > 0:
+                        ytd = valores.mean()
+                        texto_ytd = percentual(ytd)
+                    else:
+                        ytd = None
+                        texto_ytd = "N/A"
+
+                classe_ytd = ""
+
+                if formato == "percent" and pd.notna(ytd):
+
+                    if ytd > 0:
+                        classe_ytd = "color:#059669;font-weight:800;"
+
+                    elif ytd < 0:
+                        classe_ytd = "color:#e11d48;font-weight:800;"
+
+                tabela_html += f"""
+                <td style="
+                    padding:9px 18px;
+                    text-align:right;
+                    font-weight:800;
+                    background:#fafafa;
+                    border-bottom:1px solid #f1f5f9;
+                    {classe_ytd}
+                ">
+                    {texto_ytd}
                 </td>
                 """
 
-            linhas.append(
-                f"""
-                <tr>
-                    <td class="metric-name">
-                        Fluxo Vs LY %
-                    </td>
-                    {html_cells}
-                </tr>
-                """
-            )
+                tabela_html += "</tr>"
 
-            # Conversão LY
-            valores = [
-                row["CONVERSAO_LY_W36"],
-                row["CONVERSAO_LY_W37"],
-                row["CONVERSAO_LY_W38"],
-                row["CONVERSAO_LY_YTD"]
-            ]
+        tabela_html += "</tbody></table></div>"
 
-            html_cells = ""
-
-            for i, value in enumerate(valores):
-
-                classe = pct_class(value)
-
-                if i == 3:
-                    classe += " ytd"
-
-                html_cells += f"""
-                <td class="{classe}">
-                    {fmt_pct(value, signed=True)}
-                </td>
-                """
-
-            linhas.append(
-                f"""
-                <tr>
-                    <td class="metric-name">
-                        Conversão Vs LY %
-                    </td>
-                    {html_cells}
-                </tr>
-                """
-            )
-
-        tabela_html = f"""
-        <div class="matrix-wrapper">
-
-            <table class="matrix-table">
-
-                <thead>
-
-                    <tr>
-                        <th style="text-align:left;">
-                            LOJA / MÉTRICA
-                        </th>
-
-                        <th>
-                            26 / W36
-                        </th>
-
-                        <th>
-                            26 / W37
-                        </th>
-
-                        <th>
-                            26 / W38
-                        </th>
-
-                        <th>
-                            YTD SETEMBRO
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    {''.join(linhas)}
-
-                </tbody>
-
-            </table>
-
-        </div>
-        """
-
-        # IMPORTANTE:
-        # O HTML inteiro precisa estar em UM ÚNICO st.markdown
         st.markdown(
             tabela_html,
             unsafe_allow_html=True
@@ -822,136 +768,140 @@ if modo == "Matriz":
 
 
 # ============================================================
-# ANÁLISES
+# TAB ANÁLISES
 # ============================================================
 
-else:
+with tab_analises:
 
     st.markdown(
-        '<div class="section-title">Análise Interativa</div>',
+        '<div class="section-title">Análises Interativas</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
         '<div class="section-subtitle">'
-        'Explore a evolução dos indicadores por loja e semana'
+        'Explore a evolução do indicador selecionado por loja'
         '</div>',
         unsafe_allow_html=True
     )
 
-    indicador = st.radio(
-        "Indicador",
-        [
-            "Vendas",
-            "% Base",
-            "Vendas Vs LY",
-            "Fluxo Vs LY",
-            "Conversão Vs LY"
-        ],
-        horizontal=True
-    )
+    # --------------------------------------------------------
+    # CONTROLES DA ANÁLISE
+    # --------------------------------------------------------
 
-    mapa = {
+    col1, col2 = st.columns([2, 1])
 
-        "Vendas": [
-            "VENDAS_W36",
-            "VENDAS_W37",
-            "VENDAS_W38"
-        ],
+    with col1:
 
-        "% Base": [
-            "BASE_W36",
-            "BASE_W37",
-            "BASE_W38"
-        ],
+        indicador_analise = st.radio(
+            "Indicador",
+            [
+                "Vendas",
+                "% Base",
+                "Vendas Vs LY",
+                "Fluxo Vs LY",
+                "Conversão Vs LY"
+            ],
+            horizontal=True,
+            index=[
+                "Vendas",
+                "% Base",
+                "Vendas Vs LY",
+                "Fluxo Vs LY",
+                "Conversão Vs LY"
+            ].index(indicador)
+        )
 
-        "Vendas Vs LY": [
-            "VENDAS_LY_W36",
-            "VENDAS_LY_W37",
-            "VENDAS_LY_W38"
-        ],
+    with col2:
 
-        "Fluxo Vs LY": [
-            "FLUXO_LY_W36",
-            "FLUXO_LY_W37",
-            "FLUXO_LY_W38"
-        ],
+        loja_foco = st.selectbox(
+            "Loja em foco",
+            options=lojas_selecionadas if lojas_selecionadas else ordem_lojas
+        )
 
-        "Conversão Vs LY": [
-            "CONVERSAO_LY_W36",
-            "CONVERSAO_LY_W37",
-            "CONVERSAO_LY_W38"
-        ]
+    st.write("")
+
+    # --------------------------------------------------------
+    # GRÁFICO PRINCIPAL
+    # --------------------------------------------------------
+
+    mapa_colunas = {
+        "Vendas": "Vendas",
+        "% Base": "% Base",
+        "Vendas Vs LY": "Vendas Vs LY",
+        "Fluxo Vs LY": "Fluxo Vs LY",
+        "Conversão Vs LY": "Conversão Vs LY"
     }
 
-    campos = mapa[indicador]
+    coluna_indicador = mapa_colunas[indicador_analise]
 
-    chart_rows = []
-
-    for _, row in df_filtrado.iterrows():
-
-        for semana, campo in zip(
-            ["W36", "W37", "W38"],
-            campos
-        ):
-
-            chart_rows.append({
-                "Loja": row["ID"],
-                "Nome": row["LOJA"],
-                "Semana": semana,
-                "Valor": row[campo]
-            })
-
-    chart_df = pd.DataFrame(chart_rows)
-
-    # ========================================================
-    # GRÁFICO
-    # ========================================================
+    dados_grafico = df_filtrado[
+        df_filtrado["Loja"].isin(lojas_selecionadas)
+    ].copy()
 
     fig = go.Figure()
 
-    for loja in chart_df["Loja"].unique():
+    for loja in lojas_selecionadas:
 
-        temp = chart_df[
-            chart_df["Loja"] == loja
-        ].copy()
+        d = dados_grafico[
+            dados_grafico["Loja"] == loja
+        ].sort_values("Semana")
+
+        if d.empty:
+            continue
+
+        valores = d[coluna_indicador]
+
+        if valores.notna().sum() == 0:
+            continue
 
         fig.add_trace(
             go.Scatter(
-                x=temp["Semana"],
-                y=temp["Valor"],
+                x=d["Semana"],
+                y=valores,
                 mode="lines+markers",
                 name=loja,
                 connectgaps=False,
                 line=dict(width=3),
                 marker=dict(size=8),
+                customdata=d[
+                    [
+                        "Vendas",
+                        "% Base",
+                        "Vendas Vs LY",
+                        "Fluxo Vs LY",
+                        "Conversão Vs LY"
+                    ]
+                ],
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
-                    "Semana: %{x}<br>"
-                    "Valor: R$ %{y:,.0f}"
-                    "<extra></extra>"
-                )
-                if indicador == "Vendas"
-                else (
-                    "<b>%{fullData.name}</b><br>"
-                    "Semana: %{x}<br>"
-                    "Valor: %{y:.2%}"
+                    "Semana: %{x}<br><br>"
+                    "Vendas: R$ %{customdata[0]:,.0f}<br>"
+                    "% Base: %{customdata[1]:.2%}<br>"
+                    "Vendas Vs LY: %{customdata[2]:+.2%}<br>"
+                    "Fluxo Vs LY: %{customdata[3]:+.2%}<br>"
+                    "Conversão Vs LY: %{customdata[4]:+.2%}"
                     "<extra></extra>"
                 )
             )
         )
 
+    if indicador_analise == "Vendas":
+
+        titulo_eixo = "Vendas (R$)"
+        eixo_format = ",.0f"
+
+    else:
+
+        titulo_eixo = f"{indicador_analise} (%)"
+        eixo_format = ".1%"
+
     fig.update_layout(
+        title=f"Evolução semanal — {indicador_analise}",
         height=500,
-        margin=dict(
-            l=20,
-            r=20,
-            t=30,
-            b=20
-        ),
+        template="plotly_white",
         hovermode="x unified",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
+        margin=dict(l=20, r=20, t=60, b=30),
         legend=dict(
             orientation="h",
             yanchor="bottom",
@@ -960,93 +910,166 @@ else:
             x=0
         ),
         xaxis=dict(
+            title="Semana",
             categoryorder="array",
-            categoryarray=["W36", "W37", "W38"]
+            categoryarray=ordem_semanas
         ),
         yaxis=dict(
-            title="R$" if indicador == "Vendas" else "%",
-            tickformat=", .0f" if indicador == "Vendas" else ".0%",
-            gridcolor="#e2e8f0"
+            title=titulo_eixo,
+            tickformat=eixo_format,
+            zeroline=True,
+            zerolinecolor="#cbd5e1"
         )
     )
-
-    if indicador != "Vendas":
-
-        fig.add_hline(
-            y=0,
-            line_dash="dash",
-            line_width=1,
-            line_color="#94a3b8"
-        )
 
     st.plotly_chart(
         fig,
-        use_container_width=True,
-        config={
-            "displaylogo": False
-        }
+        use_container_width=True
     )
 
 
-    # ========================================================
-    # HEATMAP
-    # ========================================================
+    # --------------------------------------------------------
+    # LOJA EM FOCO
+    # --------------------------------------------------------
 
     st.markdown(
-        '<div class="section-title">Comparativo por Loja</div>',
+        '<div class="section-title">Loja em foco</div>',
         unsafe_allow_html=True
     )
 
-    heatmap = chart_df.pivot(
-        index="Loja",
-        columns="Semana",
-        values="Valor"
-    )
+    loja_df = df[
+        df["Loja"] == loja_foco
+    ].sort_values("Semana")
 
-    heatmap = heatmap.reindex(
-        columns=["W36", "W37", "W38"]
-    )
+    if not loja_df.empty:
 
-    if indicador == "Vendas":
+        nome_loja = loja_df["Nome"].iloc[0]
 
-        fig_heat = px.imshow(
-            heatmap,
-            text_auto=".0f",
-            aspect="auto"
+        st.markdown(
+            f"### {nome_loja}"
         )
 
-    else:
+        ultima = loja_df.iloc[-1]
 
-        fig_heat = px.imshow(
-            heatmap,
-            text_auto=".1%",
-            aspect="auto",
-            color_continuous_midpoint=0
+        c1, c2, c3, c4, c5 = st.columns(5)
+
+        # Vendas
+        with c1:
+            st.metric(
+                "Vendas",
+                dinheiro(ultima["Vendas"])
+            )
+
+        # Base
+        with c2:
+            st.metric(
+                "% Base",
+                percentual_simples(ultima["% Base"])
+            )
+
+        # Vendas LY
+        with c3:
+
+            if pd.isna(ultima["Vendas Vs LY"]):
+                st.metric("Vendas Vs LY", "N/A")
+            else:
+                st.metric(
+                    "Vendas Vs LY",
+                    percentual(ultima["Vendas Vs LY"])
+                )
+
+        # Fluxo
+        with c4:
+
+            if pd.isna(ultima["Fluxo Vs LY"]):
+                st.metric("Fluxo Vs LY", "N/A")
+            else:
+                st.metric(
+                    "Fluxo Vs LY",
+                    percentual(ultima["Fluxo Vs LY"])
+                )
+
+        # Conversão
+        with c5:
+
+            if pd.isna(ultima["Conversão Vs LY"]):
+                st.metric("Conversão Vs LY", "N/A")
+            else:
+                st.metric(
+                    "Conversão Vs LY",
+                    percentual(ultima["Conversão Vs LY"])
+                )
+
+
+        # ----------------------------------------------------
+        # HEATMAP
+        # ----------------------------------------------------
+
+        st.write("")
+
+        st.markdown(
+            "#### Mapa de evolução"
         )
 
-    fig_heat.update_layout(
-        height=420,
-        margin=dict(
-            l=20,
-            r=20,
-            t=20,
-            b=20
-        ),
-        paper_bgcolor="white",
-        plot_bgcolor="white"
-    )
+        heat_df = loja_df[
+            [
+                "Semana",
+                "Vendas Vs LY",
+                "Fluxo Vs LY",
+                "Conversão Vs LY"
+            ]
+        ].copy()
 
-    st.plotly_chart(
-        fig_heat,
-        use_container_width=True,
-        config={
-            "displaylogo": False
-        }
-    )
+        heat_df = heat_df.set_index("Semana")
+
+        heat_df.columns = [
+            "Vendas Vs LY",
+            "Fluxo Vs LY",
+            "Conversão Vs LY"
+        ]
+
+        fig_heat = go.Figure(
+            data=go.Heatmap(
+                z=heat_df.T.values,
+                x=heat_df.index,
+                y=heat_df.columns,
+                text=[
+                    [
+                        percentual(v)
+                        for v in linha
+                    ]
+                    for linha in heat_df.T.values
+                ],
+                texttemplate="%{text}",
+                colorscale=[
+                    [0, "#fecdd3"],
+                    [0.5, "#ffffff"],
+                    [1, "#bbf7d0"]
+                ],
+                zmid=0,
+                hovertemplate=(
+                    "<b>%{y}</b><br>"
+                    "Semana: %{x}<br>"
+                    "Valor: %{text}"
+                    "<extra></extra>"
+                )
+            )
+        )
+
+        fig_heat.update_layout(
+            height=300,
+            template="plotly_white",
+            margin=dict(l=20, r=20, t=20, b=20)
+        )
+
+        st.plotly_chart(
+            fig_heat,
+            use_container_width=True
+        )
 
 
 # ============================================================
-# EXPORTAÇÃO
+# DOWNLOAD
 # ============================================================
 
 st.divider()
@@ -1058,7 +1081,7 @@ csv = df_filtrado.to_csv(
 ).encode("utf-8-sig")
 
 st.download_button(
-    label="⬇ Exportar dados CSV",
+    label="⬇ Exportar dados filtrados",
     data=csv,
     file_name="matriz_performance_sp_capital.csv",
     mime="text/csv"
