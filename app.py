@@ -1,317 +1,626 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
-# ---------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA
-# ---------------------------------------------------------
+# =========================================================
+# 1. CONFIGURAÇÃO
+# =========================================================
+
 st.set_page_config(
-    page_title="Dashboard Executivo — SP Capital",
+    page_title="Evolução Regional — SP Capital",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ---------------------------------------------------------
-# 2. BASE DE DADOS OFICIAL (27 REGISTROS)
-# ---------------------------------------------------------
+# =========================================================
+# 2. BASE DE DADOS
+# =========================================================
+
 @st.cache_data
 def load_data():
+
     raw_data = [
-        {"Loja": "ANF", "Vendas": 1034280, "% Base": 0.210, "Vendas Vs LY %": 0.275, "Fluxo Vs LY %": 0.232, "Conversão Vs LY %": -0.071, "Semana": "26 / W37"},
-        {"Loja": "APL", "Vendas": 1058906, "% Base": 0.094, "Vendas Vs LY %": None,   "Fluxo Vs LY %": None,   "Conversão Vs LY %": None,   "Semana": "26 / W36"},
-        {"Loja": "SCN", "Vendas": 1807131, "% Base": 0.075, "Vendas Vs LY %": -0.008, "Fluxo Vs LY %": -0.021, "Conversão Vs LY %": -0.016, "Semana": "26 / W37"},
-        {"Loja": "ANF", "Vendas": 994493,  "% Base": 0.071, "Vendas Vs LY %": 0.169, "Fluxo Vs LY %": 0.053, "Conversão Vs LY %": 0.022,  "Semana": "26 / W36"},
-        {"Loja": "MRB", "Vendas": 1448346, "% Base": 0.047, "Vendas Vs LY %": -0.104, "Fluxo Vs LY %": 0.057, "Conversão Vs LY %": -0.116, "Semana": "26 / W37"},
-        {"Loja": "SCS", "Vendas": 608027,  "% Base": 0.036, "Vendas Vs LY %": 0.112, "Fluxo Vs LY %": 0.166, "Conversão Vs LY %": -0.116, "Semana": "26 / W37"},
-        {"Loja": "MRB", "Vendas": 471330,  "% Base": 0.033, "Vendas Vs LY %": -0.061, "Fluxo Vs LY %": 0.047, "Conversão Vs LY %": -0.065, "Semana": "26 / W38"},
-        {"Loja": "APL", "Vendas": 353081,  "% Base": 0.026, "Vendas Vs LY %": None,   "Fluxo Vs LY %": None,   "Conversão Vs LY %": None,   "Semana": "26 / W38"},
-        {"Loja": "SCN", "Vendas": 1676354, "% Base": 0.010, "Vendas Vs LY %": -0.063, "Fluxo Vs LY %": -0.134, "Conversão Vs LY %": 0.090,  "Semana": "26 / W36"},
-        {"Loja": "IGT", "Vendas": 600206,  "% Base": -0.002,"Vendas Vs LY %": -0.182, "Fluxo Vs LY %": -0.250, "Conversão Vs LY %": 0.066,  "Semana": "26 / W37"},
-        {"Loja": "ANF", "Vendas": 256394,  "% Base": -0.029,"Vendas Vs LY %": 0.161, "Fluxo Vs LY %": 0.218, "Conversão Vs LY %": -0.128, "Semana": "26 / W38"},
-        {"Loja": "SCS", "Vendas": 589146,  "% Base": -0.039,"Vendas Vs LY %": 0.123, "Fluxo Vs LY %": -0.022, "Conversão Vs LY %": 0.015,  "Semana": "26 / W36"},
-        {"Loja": "SCS", "Vendas": 148215,  "% Base": -0.044,"Vendas Vs LY %": 0.156, "Fluxo Vs LY %": 0.149, "Conversão Vs LY %": -0.079, "Semana": "26 / W38"},
-        {"Loja": "TBE", "Vendas": 883374,  "% Base": -0.063,"Vendas Vs LY %": 0.087, "Fluxo Vs LY %": 0.249, "Conversão Vs LY %": -0.087, "Semana": "26 / W37"},
-        {"Loja": "MRB", "Vendas": 1439788, "% Base": -0.079,"Vendas Vs LY %": -0.108, "Fluxo Vs LY %": 0.003, "Conversão Vs LY %": -0.048, "Semana": "26 / W36"},
-        {"Loja": "TBE", "Vendas": 851884,  "% Base": -0.106,"Vendas Vs LY %": 0.043, "Fluxo Vs LY %": 0.066, "Conversão Vs LY %": 0.025,  "Semana": "26 / W36"},
-        {"Loja": "IGT", "Vendas": 601414,  "% Base": -0.124,"Vendas Vs LY %": -0.173, "Fluxo Vs LY %": -0.263, "Conversão Vs LY %": 0.212,  "Semana": "26 / W36"},
-        {"Loja": "SCN", "Vendas": 478941,  "% Base": -0.161,"Vendas Vs LY %": -0.084, "Fluxo Vs LY %": -0.138, "Conversão Vs LY %": 0.072,  "Semana": "26 / W38"},
-        {"Loja": "TBE", "Vendas": 240063,  "% Base": -0.184,"Vendas Vs LY %": -0.020, "Fluxo Vs LY %": 0.154, "Conversão Vs LY %": -0.100, "Semana": "26 / W38"},
-        {"Loja": "SPE", "Vendas": 676235,  "% Base": -0.195,"Vendas Vs LY %": -0.031, "Fluxo Vs LY %": 0.040, "Conversão Vs LY %": -0.024, "Semana": "26 / W37"},
-        {"Loja": "APL", "Vendas": 787733,  "% Base": -0.202,"Vendas Vs LY %": None,   "Fluxo Vs LY %": None,   "Conversão Vs LY %": None,   "Semana": "26 / W37"},
-        {"Loja": "SBO", "Vendas": 531865,  "% Base": -0.202,"Vendas Vs LY %": -0.329, "Fluxo Vs LY %": 0.183, "Conversão Vs LY %": -0.395, "Semana": "26 / W36"},
-        {"Loja": "SBO", "Vendas": 546099,  "% Base": -0.211,"Vendas Vs LY %": -0.264, "Fluxo Vs LY %": 0.231, "Conversão Vs LY %": -0.380, "Semana": "26 / W37"},
-        {"Loja": "IGT", "Vendas": 228348,  "% Base": -0.223,"Vendas Vs LY %": -0.085, "Fluxo Vs LY %": -0.153, "Conversão Vs LY %": 0.087,  "Semana": "26 / W38"},
-        {"Loja": "SBO", "Vendas": 158404,  "% Base": -0.243,"Vendas Vs LY %": -0.265, "Fluxo Vs LY %": 0.197, "Conversão Vs LY %": -0.385, "Semana": "26 / W38"},
-        {"Loja": "SPE", "Vendas": 673999,  "% Base": -0.298,"Vendas Vs LY %": -0.053, "Fluxo Vs LY %": -0.073, "Conversão Vs LY %": 0.083,  "Semana": "26 / W36"},
-        {"Loja": "SPE", "Vendas": 203512,  "% Base": -0.312,"Vendas Vs LY %": -0.093, "Fluxo Vs LY %": -0.002, "Conversão Vs LY %": -0.005, "Semana": "26 / W38"},
+        {"Loja": "ANF", "Vendas": 1034280, "% Base": 0.210, "Vendas Vs LY %": 0.275, "Fluxo Vs LY %": 0.232, "Conversão Vs LY %": -0.071, "Semana": "W37"},
+        {"Loja": "APL", "Vendas": 1058906, "% Base": 0.094, "Vendas Vs LY %": None, "Fluxo Vs LY %": None, "Conversão Vs LY %": None, "Semana": "W36"},
+        {"Loja": "SCN", "Vendas": 1807131, "% Base": 0.075, "Vendas Vs LY %": -0.008, "Fluxo Vs LY %": -0.021, "Conversão Vs LY %": -0.016, "Semana": "W37"},
+        {"Loja": "ANF", "Vendas": 994493, "% Base": 0.071, "Vendas Vs LY %": 0.169, "Fluxo Vs LY %": 0.053, "Conversão Vs LY %": 0.022, "Semana": "W36"},
+        {"Loja": "MRB", "Vendas": 1448346, "% Base": 0.047, "Vendas Vs LY %": -0.104, "Fluxo Vs LY %": 0.057, "Conversão Vs LY %": -0.116, "Semana": "W37"},
+        {"Loja": "SCS", "Vendas": 608027, "% Base": 0.036, "Vendas Vs LY %": 0.112, "Fluxo Vs LY %": 0.166, "Conversão Vs LY %": -0.116, "Semana": "W37"},
+        {"Loja": "MRB", "Vendas": 471330, "% Base": 0.033, "Vendas Vs LY %": -0.061, "Fluxo Vs LY %": 0.047, "Conversão Vs LY %": -0.065, "Semana": "W38"},
+        {"Loja": "APL", "Vendas": 353081, "% Base": 0.026, "Vendas Vs LY %": None, "Fluxo Vs LY %": None, "Conversão Vs LY %": None, "Semana": "W38"},
+        {"Loja": "SCN", "Vendas": 1676354, "% Base": 0.010, "Vendas Vs LY %": -0.063, "Fluxo Vs LY %": -0.134, "Conversão Vs LY %": 0.090, "Semana": "W36"},
+        {"Loja": "IGT", "Vendas": 600206, "% Base": -0.002, "Vendas Vs LY %": -0.182, "Fluxo Vs LY %": -0.250, "Conversão Vs LY %": 0.066, "Semana": "W37"},
+        {"Loja": "ANF", "Vendas": 256394, "% Base": -0.029, "Vendas Vs LY %": 0.161, "Fluxo Vs LY %": 0.218, "Conversão Vs LY %": -0.128, "Semana": "W38"},
+        {"Loja": "SCS", "Vendas": 589146, "% Base": -0.039, "Vendas Vs LY %": 0.123, "Fluxo Vs LY %": -0.022, "Conversão Vs LY %": 0.015, "Semana": "W36"},
+        {"Loja": "SCS", "Vendas": 148215, "% Base": -0.044, "Vendas Vs LY %": 0.156, "Fluxo Vs LY %": 0.149, "Conversão Vs LY %": -0.079, "Semana": "W38"},
+        {"Loja": "TBE", "Vendas": 883374, "% Base": -0.063, "Vendas Vs LY %": 0.087, "Fluxo Vs LY %": 0.249, "Conversão Vs LY %": -0.087, "Semana": "W37"},
+        {"Loja": "MRB", "Vendas": 1439788, "% Base": -0.079, "Vendas Vs LY %": -0.108, "Fluxo Vs LY %": 0.003, "Conversão Vs LY %": -0.048, "Semana": "W36"},
+        {"Loja": "TBE", "Vendas": 851884, "% Base": -0.106, "Vendas Vs LY %": 0.043, "Fluxo Vs LY %": 0.066, "Conversão Vs LY %": 0.025, "Semana": "W36"},
+        {"Loja": "IGT", "Vendas": 601414, "% Base": -0.124, "Vendas Vs LY %": -0.173, "Fluxo Vs LY %": -0.263, "Conversão Vs LY %": 0.212, "Semana": "W36"},
+        {"Loja": "SCN", "Vendas": 478941, "% Base": -0.161, "Vendas Vs LY %": -0.084, "Fluxo Vs LY %": -0.138, "Conversão Vs LY %": 0.072, "Semana": "W38"},
+        {"Loja": "TBE", "Vendas": 240063, "% Base": -0.184, "Vendas Vs LY %": -0.020, "Fluxo Vs LY %": 0.154, "Conversão Vs LY %": -0.100, "Semana": "W38"},
+        {"Loja": "SPE", "Vendas": 676235, "% Base": -0.195, "Vendas Vs LY %": -0.031, "Fluxo Vs LY %": 0.040, "Conversão Vs LY %": -0.024, "Semana": "W37"},
+        {"Loja": "APL", "Vendas": 787733, "% Base": -0.202, "Vendas Vs LY %": None, "Fluxo Vs LY %": None, "Conversão Vs LY %": None, "Semana": "W37"},
+        {"Loja": "SBO", "Vendas": 531865, "% Base": -0.202, "Vendas Vs LY %": -0.329, "Fluxo Vs LY %": 0.183, "Conversão Vs LY %": -0.395, "Semana": "W36"},
+        {"Loja": "SBO", "Vendas": 546099, "% Base": -0.211, "Vendas Vs LY %": -0.264, "Fluxo Vs LY %": 0.231, "Conversão Vs LY %": -0.380, "Semana": "W37"},
+        {"Loja": "IGT", "Vendas": 228348, "% Base": -0.223, "Vendas Vs LY %": -0.085, "Fluxo Vs LY %": -0.153, "Conversão Vs LY %": 0.087, "Semana": "W38"},
+        {"Loja": "SBO", "Vendas": 158404, "% Base": -0.243, "Vendas Vs LY %": -0.265, "Fluxo Vs LY %": 0.197, "Conversão Vs LY %": -0.385, "Semana": "W38"},
+        {"Loja": "SPE", "Vendas": 673999, "% Base": -0.298, "Vendas Vs LY %": -0.053, "Fluxo Vs LY %": -0.073, "Conversão Vs LY %": 0.083, "Semana": "W36"},
+        {"Loja": "SPE", "Vendas": 203512, "% Base": -0.312, "Vendas Vs LY %": -0.093, "Fluxo Vs LY %": -0.002, "Conversão Vs LY %": -0.005, "Semana": "W38"},
     ]
-    
+
     df = pd.DataFrame(raw_data)
-    
+
     lojas_map = {
-        "ANF": "ANF - Shopping Anália Franco",
-        "APL": "APL - Paulista",
-        "IGT": "IGT - Shopping Iguatemi SP",
-        "MRB": "MRB - Shopping Morumbi",
-        "SBO": "SBO - Shopping Bourbon Pompéia",
-        "SCN": "SCN - Shopping Center Norte",
-        "SCS": "SCS - Park Shopping São Caetano",
-        "SPE": "SPE - Shopping Eldorado",
-        "TBE": "TBE - Shopping Tamboré"
+        "ANF": "ANF — Anália Franco",
+        "APL": "APL — Paulista",
+        "IGT": "IGT — Iguatemi",
+        "MRB": "MRB — Morumbi",
+        "SBO": "SBO — Bourbon Pompéia",
+        "SCN": "SCN — Center Norte",
+        "SCS": "SCS — São Caetano",
+        "SPE": "SPE — Eldorado",
+        "TBE": "TBE — Tamboré"
     }
-    
+
     df["Nome_Loja"] = df["Loja"].map(lojas_map)
+
+    ordem_semanas = {
+        "W36": 1,
+        "W37": 2,
+        "W38": 3
+    }
+
+    df["Ordem_Semana"] = df["Semana"].map(ordem_semanas)
+
     return df
 
-df_data = load_data()
 
-# ---------------------------------------------------------
-# 3. FILTROS NA BARRA LATERAL (SIDEBAR)
-# ---------------------------------------------------------
-st.sidebar.title("🔍 Filtros Executivos")
-st.sidebar.markdown("**Regional SP Capital — Lojas Conceito**")
+df = load_data()
 
-lojas_selecionadas = st.sidebar.multiselect(
-    "Filtrar Lojas:",
-    options=sorted(df_data["Nome_Loja"].unique()),
-    default=sorted(df_data["Nome_Loja"].unique())
+# =========================================================
+# 3. CSS
+# =========================================================
+
+st.markdown("""
+<style>
+
+.main-title {
+    font-size: 30px;
+    font-weight: 700;
+    margin-bottom: 0px;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 15px;
+    margin-bottom: 25px;
+}
+
+.section-title {
+    font-size: 21px;
+    font-weight: 700;
+    margin-top: 25px;
+    margin-bottom: 10px;
+}
+
+.kpi-title {
+    font-size: 13px;
+    color: #666;
+}
+
+.kpi-value {
+    font-size: 27px;
+    font-weight: 700;
+}
+
+.kpi-sub {
+    font-size: 12px;
+    color: #777;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# 4. SIDEBAR
+# =========================================================
+
+st.sidebar.title("Filtros")
+
+lojas = sorted(df["Nome_Loja"].unique())
+
+loja_selecionada = st.sidebar.selectbox(
+    "Loja em análise",
+    options=["Todas as lojas"] + lojas
 )
+
+semanas = ["W36", "W37", "W38"]
 
 semanas_selecionadas = st.sidebar.multiselect(
-    "Filtrar Semanas:",
-    options=["26 / W36", "26 / W37", "26 / W38"],
-    default=["26 / W36", "26 / W37", "26 / W38"]
+    "Semanas",
+    options=semanas,
+    default=semanas
 )
 
-# Aplicando Filtros
-df_filtered = df_data[
-    (df_data["Nome_Loja"].isin(lojas_selecionadas)) &
-    (df_data["Semana"].isin(semanas_selecionadas))
-]
+st.sidebar.divider()
 
-# ---------------------------------------------------------
-# 4. CABEÇALHO DO DASHBOARD
-# ---------------------------------------------------------
-st.title("📊 Evolução Regional SP Capital — Lojas Conceito")
-st.caption("Visão Consolidada YTD Setembro (Semanas W36 a W38) para Diretoria")
+st.sidebar.caption(
+    f"{len(lojas)} lojas disponíveis"
+)
 
-# ---------------------------------------------------------
-# 5. CARDS DE KPIS (RESUMO EXECUTIVO)
-# ---------------------------------------------------------
-total_vendas = df_filtered["Vendas"].sum()
-loja_top_vendas = df_filtered.groupby("Loja")["Vendas"].sum().idxmax() if not df_filtered.empty else "N/A"
-val_top_vendas = df_filtered.groupby("Loja")["Vendas"].sum().max() if not df_filtered.empty else 0
+st.sidebar.caption(
+    f"{len(semanas_selecionadas)} semanas selecionadas"
+)
 
-col1, col2, col3, col4 = st.columns(4)
+# =========================================================
+# 5. FILTRO
+# =========================================================
 
-with col1:
-    st.metric(
-        label="Total Vendas YTD Setembro", 
-        value=f"R$ {total_vendas:,.0f}".replace(",", ".")
+df_filtered = df[
+    df["Semana"].isin(semanas_selecionadas)
+].copy()
+
+if loja_selecionada != "Todas as lojas":
+    df_filtered = df_filtered[
+        df_filtered["Nome_Loja"] == loja_selecionada
+    ]
+
+df_filtered = df_filtered.sort_values(
+    ["Ordem_Semana"]
+)
+
+# =========================================================
+# 6. CABEÇALHO
+# =========================================================
+
+st.markdown(
+    '<div class="main-title">EVOLUÇÃO REGIONAL — SP CAPITAL</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">Acompanhamento semanal dos principais indicadores por loja | YTD 2026</div>',
+    unsafe_allow_html=True
+)
+
+# =========================================================
+# 7. RESUMO DA LOJA SELECIONADA
+# =========================================================
+
+if loja_selecionada != "Todas as lojas" and not df_filtered.empty:
+
+    ultima = df_filtered.sort_values("Ordem_Semana").iloc[-1]
+
+    vendas = ultima["Vendas"]
+    base = ultima["% Base"]
+    vendas_ly = ultima["Vendas Vs LY %"]
+    fluxo = ultima["Fluxo Vs LY %"]
+    conversao = ultima["Conversão Vs LY %"]
+
+    st.markdown(
+        f"### {loja_selecionada}"
     )
 
-with col2:
-    st.metric(
-        label="Maior Volume (Top Store)", 
-        value=f"{loja_top_vendas}", 
-        delta=f"R$ {val_top_vendas:,.0f}".replace(",", ".")
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    with c1:
+        st.metric(
+            "Vendas",
+            f"R$ {vendas:,.0f}".replace(",", ".")
+        )
+
+    with c2:
+        st.metric(
+            "% Base",
+            f"{base:.1%}".replace(".", ",")
+        )
+
+    with c3:
+        st.metric(
+            "Vendas Vs LY",
+            "N/A" if pd.isna(vendas_ly)
+            else f"{vendas_ly:+.1%}".replace(".", ",")
+        )
+
+    with c4:
+        st.metric(
+            "Fluxo Vs LY",
+            "N/A" if pd.isna(fluxo)
+            else f"{fluxo:+.1%}".replace(".", ",")
+        )
+
+    with c5:
+        st.metric(
+            "Conversão Vs LY",
+            "N/A" if pd.isna(conversao)
+            else f"{conversao:+.1%}".replace(".", ",")
+        )
+
+# =========================================================
+# 8. VISÃO GERAL — TODAS AS LOJAS
+# =========================================================
+
+if loja_selecionada == "Todas as lojas":
+
+    st.markdown(
+        '<div class="section-title">Visão Geral — Evolução por Loja</div>',
+        unsafe_allow_html=True
     )
 
-with col3:
-    st.metric(
-        label="Destaque Crescimento", 
-        value="ANF (Anália Franco)", 
-        delta="+21,4% Vs LY"
+    # -----------------------------------------------------
+    # VENDAS
+    # -----------------------------------------------------
+
+    fig = px.line(
+        df_filtered.sort_values("Ordem_Semana"),
+        x="Semana",
+        y="Vendas",
+        color="Loja",
+        markers=True,
+        hover_data=["Nome_Loja"]
     )
 
-with col4:
-    apl_vendas = df_filtered[df_filtered["Loja"] == "APL"]["Vendas"].sum()
-    st.metric(
-        label="Inauguração 2026 (APL)", 
-        value=f"R$ {apl_vendas:,.0f}".replace(",", "."), 
-        delta="Sem Histórico LY", 
-        delta_color="off"
+    fig.update_layout(
+        height=430,
+        xaxis_title="Semana",
+        yaxis_title="Vendas (R$)",
+        legend_title="Loja",
+        hovermode="x unified"
     )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    # -----------------------------------------------------
+    # INDICADORES VS LY
+    # -----------------------------------------------------
+
+    st.markdown(
+        '<div class="section-title">Indicadores Vs LY</div>',
+        unsafe_allow_html=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        fig_fluxo = px.line(
+            df_filtered.dropna(subset=["Fluxo Vs LY %"]),
+            x="Semana",
+            y="Fluxo Vs LY %",
+            color="Loja",
+            markers=True,
+            hover_data=["Nome_Loja"]
+        )
+
+        fig_fluxo.add_hline(
+            y=0,
+            line_dash="dash"
+        )
+
+        fig_fluxo.update_layout(
+            height=380,
+            xaxis_title="Semana",
+            yaxis_title="Fluxo Vs LY"
+        )
+
+        st.plotly_chart(
+            fig_fluxo,
+            use_container_width=True
+        )
+
+    with col2:
+
+        fig_conv = px.line(
+            df_filtered.dropna(subset=["Conversão Vs LY %"]),
+            x="Semana",
+            y="Conversão Vs LY %",
+            color="Loja",
+            markers=True,
+            hover_data=["Nome_Loja"]
+        )
+
+        fig_conv.add_hline(
+            y=0,
+            line_dash="dash"
+        )
+
+        fig_conv.update_layout(
+            height=380,
+            xaxis_title="Semana",
+            yaxis_title="Conversão Vs LY"
+        )
+
+        st.plotly_chart(
+            fig_conv,
+            use_container_width=True
+        )
+
+# =========================================================
+# 9. VISÃO DETALHADA DA LOJA
+# =========================================================
+
+else:
+
+    if df_filtered.empty:
+
+        st.warning(
+            "Não existem dados para os filtros selecionados."
+        )
+
+    else:
+
+        st.markdown(
+            '<div class="section-title">Evolução dos Indicadores</div>',
+            unsafe_allow_html=True
+        )
+
+        # -------------------------------------------------
+        # VENDAS
+        # -------------------------------------------------
+
+        st.markdown("#### Vendas")
+
+        fig_vendas = px.line(
+            df_filtered,
+            x="Semana",
+            y="Vendas",
+            markers=True,
+            text="Vendas"
+        )
+
+        fig_vendas.update_traces(
+            texttemplate="R$ %{text:,.0f}",
+            textposition="top center"
+        )
+
+        fig_vendas.update_layout(
+            height=350,
+            xaxis_title="",
+            yaxis_title="R$",
+            showlegend=False
+        )
+
+        st.plotly_chart(
+            fig_vendas,
+            use_container_width=True
+        )
+
+        # -------------------------------------------------
+        # % BASE
+        # -------------------------------------------------
+
+        st.markdown("#### % Base")
+
+        fig_base = px.line(
+            df_filtered,
+            x="Semana",
+            y="% Base",
+            markers=True,
+            text="% Base"
+        )
+
+        fig_base.update_traces(
+            texttemplate="%{text:.1%}",
+            textposition="top center"
+        )
+
+        fig_base.update_layout(
+            height=300,
+            xaxis_title="",
+            yaxis_title="% Base",
+            showlegend=False
+        )
+
+        st.plotly_chart(
+            fig_base,
+            use_container_width=True
+        )
+
+        # -------------------------------------------------
+        # VENDAS VS LY
+        # -------------------------------------------------
+
+        st.markdown("#### Vendas Vs LY")
+
+        dados = df_filtered.dropna(
+            subset=["Vendas Vs LY %"]
+        )
+
+        if not dados.empty:
+
+            fig = px.line(
+                dados,
+                x="Semana",
+                y="Vendas Vs LY %",
+                markers=True,
+                text="Vendas Vs LY %"
+            )
+
+            fig.add_hline(
+                y=0,
+                line_dash="dash"
+            )
+
+            fig.update_traces(
+                texttemplate="%{text:.1%}",
+                textposition="top center"
+            )
+
+            fig.update_layout(
+                height=300,
+                xaxis_title="",
+                yaxis_title="Vs LY",
+                showlegend=False
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+        else:
+
+            st.info(
+                "Não há histórico LY disponível para esta loja."
+            )
+
+        # -------------------------------------------------
+        # FLUXO
+        # -------------------------------------------------
+
+        st.markdown("#### Fluxo Vs LY")
+
+        dados = df_filtered.dropna(
+            subset=["Fluxo Vs LY %"]
+        )
+
+        if not dados.empty:
+
+            fig = px.line(
+                dados,
+                x="Semana",
+                y="Fluxo Vs LY %",
+                markers=True,
+                text="Fluxo Vs LY %"
+            )
+
+            fig.add_hline(
+                y=0,
+                line_dash="dash"
+            )
+
+            fig.update_traces(
+                texttemplate="%{text:.1%}",
+                textposition="top center"
+            )
+
+            fig.update_layout(
+                height=300,
+                xaxis_title="",
+                yaxis_title="Vs LY",
+                showlegend=False
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+        # -------------------------------------------------
+        # CONVERSÃO
+        # -------------------------------------------------
+
+        st.markdown("#### Conversão Vs LY")
+
+        dados = df_filtered.dropna(
+            subset=["Conversão Vs LY %"]
+        )
+
+        if not dados.empty:
+
+            fig = px.line(
+                dados,
+                x="Semana",
+                y="Conversão Vs LY %",
+                markers=True,
+                text="Conversão Vs LY %"
+            )
+
+            fig.add_hline(
+                y=0,
+                line_dash="dash"
+            )
+
+            fig.update_traces(
+                texttemplate="%{text:.1%}",
+                textposition="top center"
+            )
+
+            fig.update_layout(
+                height=300,
+                xaxis_title="",
+                yaxis_title="Vs LY",
+                showlegend=False
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+# =========================================================
+# 10. TABELA DE EVOLUÇÃO
+# =========================================================
 
 st.divider()
 
-# ---------------------------------------------------------
-# 6. ABAS INTERATIVAS
-# ---------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Matriz Executiva Consolidada", 
-    "📈 Gráficos Interativos", 
-    "🗃️ Dados Brutos", 
-    "🎯 Diagnóstico da Diretoria"
-])
+st.markdown(
+    '<div class="section-title">Tabela de Evolução</div>',
+    unsafe_allow_html=True
+)
 
-# ---------------------------------------------------------
-# ABA 1: MATRIZ EXECUTIVA UNIFICADA COM TOTAIS E SEMANAS
-# ---------------------------------------------------------
-with tab1:
-    st.subheader("Matriz de Evolução Semanal e Desempenho Executivo")
-    st.caption("Visão completa por Unidade: Vendas Semanal, Acumulado YTD, Share (%) e Indicadores Vs LY")
+tabela = df_filtered[
+    [
+        "Nome_Loja",
+        "Semana",
+        "Vendas",
+        "% Base",
+        "Vendas Vs LY %",
+        "Fluxo Vs LY %",
+        "Conversão Vs LY %"
+    ]
+].copy()
 
-    if not df_filtered.empty:
-        # 1. Pivot de Vendas por Semana
-        pivot_vendas = df_filtered.pivot_table(
-            index="Nome_Loja",
-            columns="Semana",
-            values="Vendas",
-            aggfunc="sum",
-            fill_value=0
-        )
+tabela.columns = [
+    "Loja",
+    "Semana",
+    "Vendas",
+    "% Base",
+    "Vendas Vs LY",
+    "Fluxo Vs LY",
+    "Conversão Vs LY"
+]
 
-        semanas_cols = [c for c in ["26 / W36", "26 / W37", "26 / W38"] if c in pivot_vendas.columns]
-        
-        # 2. Total do Período por Loja
-        pivot_vendas["Total Período (R$)"] = pivot_vendas[semanas_cols].sum(axis=1)
-        grand_total = pivot_vendas["Total Período (R$)"].sum()
-        
-        # 3. Share de Cada Loja (%)
-        pivot_vendas["Share (%)"] = (pivot_vendas["Total Período (R$)"] / grand_total * 100) if grand_total > 0 else 0
+tabela["Vendas"] = tabela["Vendas"].map(
+    lambda x: f"R$ {x:,.0f}".replace(",", ".")
+)
 
-        # 4. Médias dos Indicadores Vs LY
-        metrics_ly = df_filtered.groupby("Nome_Loja")[["Vendas Vs LY %", "Fluxo Vs LY %", "Conversão Vs LY %"]].mean()
+for coluna in [
+    "% Base",
+    "Vendas Vs LY",
+    "Fluxo Vs LY",
+    "Conversão Vs LY"
+]:
 
-        # 5. Unindo Tudo em uma Única Tabela
-        matriz_completa = pivot_vendas.join(metrics_ly).reset_index()
-        matriz_completa = matriz_completa.sort_values(by="Total Período (R$)", ascending=False)
-
-        # 6. Criando a Linha de TOTAL REGIONAL / LOJAS CONCEITO
-        total_row = {"Nome_Loja": "TOTAL LOJAS CONCEITO (SP)"}
-        for col in semanas_cols:
-            total_row[col] = pivot_vendas[col].sum()
-        
-        total_row["Total Período (R$)"] = grand_total
-        total_row["Share (%)"] = 100.0
-        
-        # Médias regionais ponderadas/simples para a linha do Total
-        total_row["Vendas Vs LY %"] = df_filtered["Vendas Vs LY %"].dropna().mean()
-        total_row["Fluxo Vs LY %"] = df_filtered["Fluxo Vs LY %"].dropna().mean()
-        total_row["Conversão Vs LY %"] = df_filtered["Conversão Vs LY %"].dropna().mean()
-
-        # Adicionando a linha final de Total
-        matriz_final = pd.concat([matriz_completa, pd.DataFrame([total_row])], ignore_index=True)
-
-        # 7. Formatação Amigável Executiva
-        matriz_formatted = pd.DataFrame()
-        matriz_formatted["Unidade / Loja Conceito"] = matriz_final["Nome_Loja"]
-
-        for col in semanas_cols:
-            matriz_formatted[col] = matriz_final[col].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
-
-        matriz_formatted["Total Período (R$)"] = matriz_final["Total Período (R$)"].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
-        matriz_formatted["Share (%)"] = matriz_final["Share (%)"].apply(lambda x: f"{x:.1f}%".replace(".", ","))
-
-        def fmt_ly(val, is_apl):
-            if is_apl:
-                return "Inauguração 2026"
-            if pd.isnull(val):
-                return "N/A"
-            return f"{val * 100:+.1f}%".replace(".", ",")
-
-        # Aplicando a formatação especial para APL e Médias
-        matriz_formatted["Vendas Vs LY"] = [fmt_ly(v, "APL" in name) for v, name in zip(matriz_final["Vendas Vs LY %"], matriz_final["Nome_Loja"])]
-        matriz_formatted["Fluxo Vs LY"] = [fmt_ly(f, "APL" in name) for f, name in zip(matriz_final["Fluxo Vs LY %"], matriz_final["Nome_Loja"])]
-        matriz_formatted["Conversão Vs LY"] = [fmt_ly(c, "APL" in name) for c, name in zip(matriz_final["Conversão Vs LY %"], matriz_final["Nome_Loja"])]
-
-        # Exibição na Tela em Tabela Elegante
-        st.dataframe(
-            matriz_formatted,
-            use_container_width=True,
-            hide_index=True
-        )
-        st.info("💡 **Destaque:** A última linha traz o **TOTAL LOJAS CONCEITO (SP)** com a soma acumulada de R$ 19,3M nas 3 semanas analisadas.")
-    else:
-        st.warning("Nenhum dado encontrado para os filtros selecionados.")
-
-
-# ---------------------------------------------------------
-# ABA 2: GRÁFICOS INTERATIVOS
-# ---------------------------------------------------------
-with tab2:
-    col_chart1, col_chart2 = st.columns(2)
-    
-    with col_chart1:
-        st.subheader("Faturamento Acumulado por Loja (R$)")
-        vendas_por_loja = df_filtered.groupby("Loja")["Vendas"].sum().reset_index().sort_values(by="Vendas", ascending=True)
-        fig_bar = px.bar(
-            vendas_por_loja, 
-            x="Vendas", 
-            y="Loja", 
-            orientation='h',
-            text_auto='.2s',
-            color="Vendas",
-            color_continuous_scale="Blues"
-        )
-        fig_bar.update_layout(showlegend=False, height=400)
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    with col_chart2:
-        st.subheader("Matriz de Eficiência: Fluxo Vs Conversão (Vs LY)")
-        df_ly = df_filtered.dropna(subset=["Fluxo Vs LY %", "Conversão Vs LY %"])
-        
-        fig_scatter = px.scatter(
-            df_ly,
-            x="Fluxo Vs LY %",
-            y="Conversão Vs LY %",
-            color="Loja",
-            size="Vendas",
-            hover_name="Nome_Loja",
-            text="Semana",
-            labels={"Fluxo Vs LY %": "Variação de Fluxo (%)", "Conversão Vs LY %": "Variação de Conversão (%)"}
-        )
-        fig_scatter.add_hline(y=0, line_dash="dash", line_color="gray")
-        fig_scatter.add_vline(x=0, line_dash="dash", line_color="gray")
-        fig_scatter.update_layout(height=400)
-        st.plotly_chart(fig_scatter, use_container_width=True)
-
-
-# ---------------------------------------------------------
-# ABA 3: DADOS BRUTOS
-# ---------------------------------------------------------
-with tab3:
-    st.subheader("Base de Dados Completa")
-    st.dataframe(df_filtered, use_container_width=True, hide_index=True)
-    
-    csv = df_filtered.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Baixar Dados em CSV",
-        data=csv,
-        file_name="dados_regional_sp_capital.csv",
-        mime="text/csv"
+    tabela[coluna] = tabela[coluna].apply(
+        lambda x: ""
+        if pd.isna(x)
+        else f"{x:+.1%}".replace(".", ",")
     )
 
+st.dataframe(
+    tabela,
+    use_container_width=True,
+    hide_index=True
+)
 
-# ---------------------------------------------------------
-# ABA 4: DIAGNÓSTICO DA DIRETORIA
-# ---------------------------------------------------------
-with tab4:
-    st.subheader("📌 Diagnóstico da Diretoria — Unidades SP Capital")
-    col_d1, col_d2, col_d3 = st.columns(3)
-    
-    with col_d1:
-        st.markdown("""
-        ### 🟢 1. APL (Paulista)
-        * **Status:** Inauguração 2026 (Ramp-up).
-        * **Desempenho:** Já acumula **R$ 2,20M** no YTD Setembro, sendo a 3ª maior em faturamento.
-        * **Recomendação:** Acompanhar curva de maturidade das vendas sem tentar comparar com o ano anterior.
-        """)
-        
-    with col_d2:
-        st.markdown("""
-        ### 🟡 2. ANF (Anália Franco)
-        * **Status:** Alta Atração / Gargalo no Caixa.
-        * **Desempenho:** Vendas em forte alta (+21,4% Vs LY) com tráfego elevado (+14,9%), mas perda de conversão (-12,8% na W38).
-        * **Recomendação:** Reforçar contingente de atendimento e fila rápida nos horários de pico.
-        """)
+# =========================================================
+# 11. DOWNLOAD
+# =========================================================
 
-    with col_d3:
-        st.markdown("""
-        ### 🔴 3. SBO (Bourbon Pompéia)
-        * **Status:** Crítico / Perda Severa de Conversão.
-        * **Desempenho:** O shopping atraiu mais público (+19,7% de fluxo), porém a conversão despencou -38,5%.
-        * **Recomendação:** Auditoria imediata de equipe de loja, disponibilidade de produto (ruptura) e preços.
-        """)
+csv = df_filtered.to_csv(
+    index=False
+).encode("utf-8-sig")
+
+st.download_button(
+    label="Baixar dados filtrados",
+    data=csv,
+    file_name="evolucao_sp_capital.csv",
+    mime="text/csv"
+)
