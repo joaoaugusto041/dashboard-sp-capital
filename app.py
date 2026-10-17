@@ -89,7 +89,7 @@ def txt_delta(delta, ano_ant, unidade="%"):
     return f"{seta} {br(abs(delta))}{unidade} vs {ano_ant}"
 
 # ======================================================================
-# PREPARAÇÃO E TRATAMENTO DA PLANILHA DE RI (SEM PERDAS DE COLUNAS)
+# PREPARAÇÃO E TRATAMENTO DA PLANILHA DE RI (LEITURA BLINDADA)
 # ======================================================================
 def para_numero(v):
     nan = float("nan")
@@ -116,20 +116,23 @@ def preparar_planilha():
     if raw is None:
         return pd.DataFrame(), pd.DataFrame()
     
-    cols, nomes = [0], ["Conta / Indicador"]
+    cols = [0]
+    nomes = ["Conta / Indicador"]
     for c in range(1, raw.shape[1]):
-        # Varre o cabeçalho bruto procurando rótulos de colunas válidos
-        val_0 = str(raw.iloc[0, c]).strip()
-        val_1 = str(raw.iloc[1, c]).strip() if raw.shape[0] > 1 else ""
-        val_2 = str(raw.iloc[2, c]).strip() if raw.shape[0] > 2 else ""
-        
-        rotulo = val_2 if val_2 not in ("", "nan", "None") else (val_1 if val_1 not in ("", "nan", "None") else val_0)
-        if rotulo.endswith(".0"):
-            rotulo = rotulo[:-2]
-        
-        if rotulo and rotulo not in ("nan", "None", "Conta / Indicador"):
-            cols.append(c)
-            nomes.append(rotulo)
+        rotulo = ""
+        for r in range(min(3, raw.shape[0])):
+            val = str(raw.iloc[r, c]).strip()
+            if val and val.lower() not in ("nan", "none", ""):
+                if val.endswith(".0"):
+                    val = val[:-2]
+                if val.isdigit() or "20" in val or "1T" in val or "2T" in val or "3T" in val or "4T" in val:
+                    rotulo = val
+                    break
+        if not rotulo:
+            rotulo = f"Col_{c}"
+            
+        cols.append(c)
+        nomes.append(rotulo)
             
     df = raw.iloc[3:, cols].copy()
     df.columns = nomes
@@ -150,9 +153,8 @@ def preparar_planilha():
     return df_n, df_t
 
 df_num, df_txt = preparar_planilha()
-eh_ano = lambda c: str(c).replace('.0', '').strip().isdigit() and len(str(c).replace('.0', '').strip()) == 4
-anos_planilha = [int(str(c).replace('.0', '').strip()) for c in df_num.columns[1:] if eh_ano(c)] if not df_num.empty else []
-ANOS = sorted(set(ANOS_REF) | set(anos_planilha))
+anos_planilha = [str(c) for c in df_num.columns[1:]]
+ANOS = sorted(list(set(ANOS_REF) | set([int(a) for a in anos_planilha if a.isdigit() and len(a) == 4])))
 
 def valor_planilha(chave, ano):
     rx = MAPEAMENTO_CONTAS.get(chave)
@@ -446,7 +448,7 @@ with abas[5]:
         st.info("Selecione um ano com ano anterior disponível para ver a variação.")
 
 # ======================================================================
-# SEÇÃO 4: DRE GERENCIAL COMPLETO (COM FILTRO MULTI-ANO)
+# SEÇÃO 4: DRE GERENCIAL COMPLETO (COM MULTI-SELEÇÃO DE ANOS)
 # ======================================================================
 st.markdown("---")
 st.subheader("📋 DRE Gerencial Completo — B3 (API RI)")
@@ -456,16 +458,14 @@ if df_txt.empty:
 else:
     col_t1, col_t2, col_t3 = st.columns([3, 1.5, 2])
     
-    # Todas as colunas disponíveis na planilha (com exceção de 'Conta / Indicador')
     todas_colunas_planilha = list(df_txt.columns[1:])
     
     with col_t1:
-        # SELETOR MÚLTIPLO: Permite escolher um ou vários anos/períodos simultaneamente
         colunas_selecionadas = st.multiselect(
             "📅 Selecione os anos/períodos para exibir na tabela:",
             options=todas_colunas_planilha,
-            default=todas_colunas_planilha,  # Exibe todos os anos por padrão
-            help="Selecione vários anos para comparar lado a lado na tabela."
+            default=todas_colunas_planilha,
+            help="Clique para adicionar ou remover anos da visualização lado a lado."
         )
     
     with col_t2:
@@ -475,11 +475,9 @@ else:
     with col_t3:
         busca = st.text_input("🔍 Pesquisar conta", placeholder="Ex.: EBITDA, Pessoal, JCP, TI...")
 
-    # Garante que ao menos uma coluna seja exibida se o usuário desmarcar tudo
     if not colunas_selecionadas:
         colunas_selecionadas = todas_colunas_planilha
 
-    # Monta a tabela filtrada com a coluna de contas + os anos escolhidos
     df_exibicao = df_txt[["Conta / Indicador"] + colunas_selecionadas].copy()
 
     if busca:
