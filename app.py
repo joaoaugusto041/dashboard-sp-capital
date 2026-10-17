@@ -24,9 +24,6 @@ ALIQUOTA_NOMINAL = 0.34  # IRPJ + CSLL, usada para estimar o efeito fiscal dos a
 
 # ----------------------------------------------------------------------
 # MAPEAMENTO PLANILHA -> MODELO
-# Informe, para cada item, um trecho (regex) do nome da conta na planilha de RI.
-# Itens sem mapeamento usam valores de REFERÊNCIA (ilustrativos).
-# Exemplo: "receita_bruta": r"^receita bruta"
 # ----------------------------------------------------------------------
 MAPEAMENTO_CONTAS = {
     # "receita_bruta": r"",
@@ -47,7 +44,6 @@ REF = {  # R$ milhões (ilustrativo)
     2025: dict(receita_bruta=2868.0, deducoes=277.5, despesas=819.4, ajustes=42.0, amortizacao=125.8, financeiro=300.0, ir=105.1),
     2026: dict(receita_bruta=3010.0, deducoes=291.0, despesas=850.0, ajustes=30.0, amortizacao=128.0, financeiro=310.0, ir=108.0),
 }
-# Abertura por componente: (nome, valor-base, potencial de oportunidade)
 DET = {
     "ded": [("PIS/COFINS", 185.4, "Médio"), ("ISS municipal", 92.1, "Baixo")],
     "desp": [("Pessoal fixo", 285.0, "Baixo"), ("Remuneração variável / bônus", 110.2, "Médio"),
@@ -59,21 +55,17 @@ DET = {
     "ir": [("IRPJ", 145.2, "Médio"), ("CSLL", 58.3, "Baixo"), ("Benefício fiscal do JCP", -98.4, "Alto")],
 }
 
-
 # ======================================================================
 # FORMATAÇÃO PT-BR
 # ======================================================================
 def br(v, casas=1):
     return f"{v:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-
 def mi(v, casas=1):
     return f"R$ {br(v, casas)} mi"
 
-
 def var_pct(atual, anterior):
     return None if not anterior else (atual / anterior - 1) * 100
-
 
 def mostrar_grafico(fig, **kw):
     fig.update_layout(separators=",.", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
@@ -84,13 +76,11 @@ def mostrar_grafico(fig, **kw):
     except TypeError:
         return st.plotly_chart(fig, use_container_width=True, config=cfg, **kw)
 
-
 def mostrar_tabela(df, **kw):
     try:
         return st.dataframe(df, width="stretch", hide_index=True, **kw)
     except TypeError:
         return st.dataframe(df, use_container_width=True, hide_index=True, **kw)
-
 
 def card(titulo, valor, delta_txt="", cor="#1f77b4"):
     st.markdown(
@@ -98,12 +88,10 @@ def card(titulo, valor, delta_txt="", cor="#1f77b4"):
         f"<div class='kpi-valor'>{valor}</div><div class='kpi-delta' style='color:{cor}'>{delta_txt}</div></div>",
         unsafe_allow_html=True)
 
-
 def cor_delta(delta, bom_se_subir=True):
     if delta is None or abs(delta) < 0.05:
         return "#6c757d"
     return COR_GANHO if (delta > 0) == bom_se_subir else COR_QUEDA
-
 
 def txt_delta(delta, ano_ant, unidade="%"):
     if delta is None:
@@ -111,12 +99,10 @@ def txt_delta(delta, ano_ant, unidade="%"):
     seta = "▲" if delta > 0 else "▼" if delta < 0 else "■"
     return f"{seta} {br(abs(delta))}{unidade} vs {ano_ant}"
 
-
 # ======================================================================
-# DADOS DA PLANILHA DE RI (somente anos consolidados)
+# DADOS DA PLANILHA DE RI (Leitura Blindada e Completa)
 # ======================================================================
 def para_numero(v):
-    """Converte número ou texto (inclusive padrão pt-BR) em float; NaN se não for numérico."""
     nan = float("nan")
     if v is None:
         return nan
@@ -135,21 +121,23 @@ def para_numero(v):
         return nan
     return -n if neg else n
 
-
 @st.cache_data(show_spinner="Carregando dados da B3...")
 def preparar_planilha():
     raw = carregar_dados_b3()
     if raw is None:
         return pd.DataFrame(), pd.DataFrame()
     cols, nomes = [0], ["Conta / Indicador"]
-    for c in range(2, raw.shape[1]):
-        ano = str(raw.iloc[1, c]).strip()
-        trim = str(raw.iloc[2, c]).strip()
-        rotulo = trim if trim not in ("", "nan") else ano  # mesma lógica do código original
+    for c in range(1, raw.shape[1]):
+        val_0 = str(raw.iloc[0, c]).strip()
+        val_1 = str(raw.iloc[1, c]).strip() if raw.shape[0] > 1 else ""
+        val_2 = str(raw.iloc[2, c]).strip() if raw.shape[0] > 2 else ""
+        
+        rotulo = val_2 if val_2 not in ("", "nan") else (val_1 if val_1 not in ("", "nan") else val_0)
         rotulo = rotulo[:-2] if rotulo.endswith(".0") else rotulo
-        if rotulo not in ("", "nan", "None"):
+        if rotulo and rotulo not in ("nan", "None", "Conta / Indicador"):
             cols.append(c)
             nomes.append(rotulo)
+            
     df = raw.iloc[3:, cols].copy()
     df.columns = nomes
     df = df.loc[:, ~df.columns.duplicated()]
@@ -168,12 +156,10 @@ def preparar_planilha():
         ]
     return df_n, df_t
 
-
 df_num, df_txt = preparar_planilha()
 eh_ano = lambda c: str(c).isdigit() and len(str(c)) == 4
 anos_planilha = [int(c) for c in df_num.columns[1:] if eh_ano(c)] if not df_num.empty else []
 ANOS = sorted(set(ANOS_REF) | set(anos_planilha))
-
 
 def valor_planilha(chave, ano):
     rx = MAPEAMENTO_CONTAS.get(chave)
@@ -184,11 +170,9 @@ def valor_planilha(chave, ano):
         return None
     return abs(float(linha.iloc[0][str(ano)])) * ESCALA_PLANILHA_PARA_MI
 
-
 def escalar(base, total):
     soma = sum(x[1] for x in base)
     return [(n, v * total / soma, p) for n, v, p in base]
-
 
 def montar_modelo(ano):
     ref = REF[min(REF, key=lambda a: abs(a - ano))]
@@ -218,11 +202,10 @@ def montar_modelo(ano):
     m["usa_ref"] = usa_ref
     return m
 
-
 MODELOS = {a: montar_modelo(a) for a in ANOS}
 
 # ======================================================================
-# CABEÇALHO E SELETOR GLOBAL (somente anos)
+# CABEÇALHO E SELETOR GLOBAL
 # ======================================================================
 st.title("📊 Dashboard Financeiro B3SA3 — Auditoria de Rentabilidade")
 st.caption("Clique diretamente nas barras e fatias dos gráficos para explorar os detalhes.")
@@ -244,14 +227,11 @@ if m["usa_ref"]:
 st.markdown("---")
 st.subheader("🚨 Radar de Alertas e Indicadores Executivos")
 
-
 def d(chave):
     return var_pct(m[chave], mp[chave]) if mp else None
 
-
 def dpp(chave):
     return (m[chave] - mp[chave]) if mp else None
-
 
 k = st.columns(4)
 with k[0]:
@@ -281,26 +261,6 @@ with k[2]:
 with k[3]:
     card("Margem líquida", f"{br(m['margem_liq'])}%", txt_delta(dpp("margem_liq"), ano_ant, " p.p."), cor_delta(dpp("margem_liq")))
 
-# Caixa de diagnóstico dinâmico
-with st.container(border=True):
-    st.markdown(f"##### 🧭 Diagnóstico de oportunidades — {ano}")
-    maior = max(m["det"]["desp"], key=lambda x: x[1])
-    alto = [n for n, _, p in m["det"]["desp"] if p == "Alto"]
-    st.markdown(f"- **Maior item de custo:** {maior[0]} ({mi(maior[1])}, {br(maior[1] / m['despesas'] * 100)}% das despesas operacionais).")
-    if alto:
-        soma_alto = sum(v for n, v, p in m["det"]["desp"] if p == "Alto")
-        st.markdown(f"- **Alavancas de alto potencial:** {', '.join(alto)}, somando {mi(soma_alto)}. "
-                    f"Uma redução de 10% liberaria cerca de {mi(soma_alto * 0.10)} de EBITDA.")
-    if dd is not None and dr is not None:
-        if dd > dr:
-            st.markdown(f"- 🔴 **Alerta:** despesas cresceram {br(dd)}% contra {br(dr)}% da receita líquida (perda de eficiência).")
-        else:
-            st.markdown(f"- 🟢 Despesas cresceram {br(dd)}% contra {br(dr)}% da receita líquida (ganho de escala).")
-    peso_nr = m["ajustes"] / m["ebitda_rec"] * 100
-    st.markdown(f"- {'🟡' if peso_nr > 3 else '🟢'} Ajustes não recorrentes equivalem a {br(peso_nr)}% do EBITDA recorrente.")
-    jcp = abs(m["det"]["bx"][-1][1])
-    st.markdown(f"- 💡 O benefício fiscal do JCP reduz a carga de IRPJ/CSLL em {mi(jcp)}.")
-
 # ======================================================================
 # SEÇÃO 2: PONTE DE RESULTADO INTERATIVA
 # ======================================================================
@@ -315,10 +275,8 @@ NOMES_DRILL = {
     "aj": "Ajustes Não Recorrentes", "bx": "Amortização, Financeiro e IR",
 }
 
-
 def montar_passos(m, expandido):
     passos = []
-
     def total(rot, val):
         passos.append(dict(rotulo=rot, valor=val, tipo="total", cor=COR_TOTAL, hover=f"{rot}<br>{mi(val)}"))
 
@@ -348,7 +306,6 @@ def montar_passos(m, expandido):
     total("Lucro Líquido", m["lucro"])
     return passos
 
-
 passos = montar_passos(m, st.session_state["drill"])
 
 nivel, bases, alturas, topos = 0.0, [], [], []
@@ -373,7 +330,6 @@ fig.add_bar(x=x, y=bases, marker_color="rgba(0,0,0,0)", hoverinfo="skip", showle
 fig.add_bar(x=x, y=alturas, marker_color=[p["cor"] for p in passos], hovertext=[p["hover"] for p in passos],
             hoverinfo="text", showlegend=False)
 fig.add_scatter(x=x, y=topos, mode="text", text=textos, textposition="top center", hoverinfo="skip", showlegend=False)
-fig.update_traces(selected=dict(marker=dict(opacity=1)), unselected=dict(marker=dict(opacity=1)), selector=dict(type="bar"))
 fig.update_layout(
     barmode="stack", bargap=0.25, height=520, clickmode="event+select",
     title=f"<b>Ponte consolidada do resultado — {ano}</b>" +
@@ -386,7 +342,6 @@ if st.session_state["drill"]:
         st.session_state["drill"] = None
         st.session_state["ver"] += 1
         st.rerun()
-    st.caption("Legenda dos componentes: 🟥 alto potencial de otimização · 🟨 médio · ⬜ baixo · 🟦 efeito contábil sem caixa · 🟩 benefício.")
 
 evento = mostrar_grafico(fig, key=f"ponte_{st.session_state['ver']}", on_select="rerun", selection_mode="points")
 pontos = (evento or {}).get("selection", {}).get("points", []) if evento else []
@@ -417,7 +372,6 @@ with abas[0]:
     f.update_layout(barmode="group", title="<b>EBITDA reportado vs. recorrente (R$ milhões)</b>",
                     yaxis_title="R$ milhões", xaxis=dict(type="category"), legend=dict(orientation="h", y=-0.15))
     mostrar_grafico(f)
-    st.caption("A diferença entre as barras é o ruído contábil (M&A, rescisões, provisões) expurgado do resultado recorrente.")
 
 with abas[1]:
     c1, c2 = st.columns([3, 2])
@@ -439,7 +393,7 @@ with abas[1]:
             nome, val, pot = BASE_CUSTOS[int(idx)]
             card(nome, mi(val), f"{br(val / m['receita_liquida'] * 100)}% da receita líquida · potencial: {pot}", COR_OPORT[pot])
         else:
-            st.info("Clique em uma fatia da rosca para ver o peso sobre a receita e o potencial de oportunidade.")
+            st.info("Clique em uma fatia da rosca para ver os detalhes.")
 
 with abas[2]:
     f = go.Figure()
@@ -464,7 +418,7 @@ with abas[3]:
               marker_color=[COR_OPORT[p] for _, _, p in ordenado], text=[br(v) for _, v, _ in ordenado], textposition="outside")
     f.add_scatter(x=[n for n, _, _ in ordenado], y=acum, name="% acumulado", yaxis="y2", mode="lines+markers",
                   line=dict(color="#333", width=2))
-    f.update_layout(title=f"<b>Pareto de custos — {ano}: poucos itens concentram a maior parte do gasto</b>",
+    f.update_layout(title=f"<b>Pareto de custos — {ano}</b>",
                     yaxis=dict(title="R$ milhões"), yaxis2=dict(title="% acumulado", overlaying="y", side="right",
                     range=[0, 105], ticksuffix="%"), legend=dict(orientation="h", y=-0.3), height=500)
     mostrar_grafico(f)
@@ -474,8 +428,8 @@ with abas[4]:
     grupos = [("Deduções e impostos", m["det"]["ded"]), ("Despesas operacionais", m["det"]["desp"]),
               ("Ajustes não recorrentes", m["det"]["aj"]),
               ("Amortização, financeiro e IR", [("Amortização (Cetip)", m["amortizacao"], ""),
-                                                ("Resultado financeiro", m["financeiro"], ""),
-                                                ("IRPJ/CSLL (líquidos do JCP)", m["ir"], "")]),
+                                               ("Resultado financeiro", m["financeiro"], ""),
+                                               ("IRPJ/CSLL (líquidos do JCP)", m["ir"], "")]),
               ("Lucro líquido", [("Lucro líquido ", m["lucro"], "")])]
     for gnome, filhos in grupos:
         rotulos.append(gnome)
@@ -486,9 +440,9 @@ with abas[4]:
             pais.append(gnome)
             valores.append(v)
     f = go.Figure(go.Treemap(labels=rotulos, parents=pais, values=valores, branchvalues="total",
-                             texttemplate="%{label}<br>R$ %{value:,.1f} mi", textfont=dict(size=14),
-                             hovertemplate="%{label}<br>R$ %{value:,.1f} mi · %{percentRoot:.1%} da receita bruta<extra></extra>"))
-    f.update_layout(title=f"<b>Para onde vai cada real da receita bruta — {ano}</b> (clique para aprofundar)", height=560)
+                           texttemplate="%{label}<br>R$ %{value:,.1f} mi", textfont=dict(size=14),
+                           hovertemplate="%{label}<br>R$ %{value:,.1f} mi<extra></extra>"))
+    f.update_layout(title=f"<b>Para onde vai cada real da receita bruta — {ano}</b>", height=560)
     mostrar_grafico(f)
 
 with abas[5]:
@@ -498,84 +452,48 @@ with abas[5]:
         vals = [var_pct(m[c], mp[c]) for _, c, _ in itens]
         f = go.Figure(go.Bar(x=[n for n, _, _ in itens], y=vals, marker_color=[cor_delta(v, b) for v, (_, _, b) in zip(vals, itens)],
                              text=[f"{br(v)}%" for v in vals], textposition="outside"))
-        f.update_layout(title=f"<b>Variação {ano_ant} → {ano} (%)</b> · verde = favorável, vermelho = desfavorável",
-                        yaxis=dict(ticksuffix="%"), height=460)
+        f.update_layout(title=f"<b>Variação {ano_ant} → {ano} (%)</b>", yaxis=dict(ticksuffix="%"), height=460)
         mostrar_grafico(f)
     else:
         st.info("Selecione um ano com ano anterior disponível para ver a variação.")
 
-
-# --------------------------------------------------
-# DRE GERENCIAL COMPLETO (B3 - API RI)
-# --------------------------------------------------
+# ======================================================================
+# SEÇÃO 4: DRE GERENCIAL COMPLETO (Exibição Garantida)
+# ======================================================================
 st.markdown("---")
 st.subheader("📋 DRE Gerencial Completo — B3 (API RI)")
-st.markdown("🔎 *Ferramentas de Análise:* Utilize os seletores abaixo para alternar entre a visão anual consolidada ou trimestral, e pesquise contas específicas para auditoria.")
 
-if df_b3_raw is not None and not df_gerencial.empty:
-    
-    col_sel1, col_sel2 = st.columns([2, 2])
-    with col_sel1:
-        tipo_visao = st.selectbox(
-            "🎛️ Visão Temporal da Tabela",
-            ["Visão Completa (Trimestres e Anos)", "Apenas Anos Consolidados", "Apenas Trimestres"],
-            index=0
-        )
-    with col_sel2:
-        destacar_oportunidades_tabela = st.checkbox("🎯 Modo Foco / Auditoria de Middle-Line", value=False)
-
-    # Identificação exata das colunas de anos (estritamente 4 dígitos numéricos)
-    colunas_atuais = df_gerencial.columns.tolist()
-    colunas_anos = [c for c in colunas_atuais if str(c).replace('.0', '').strip().isdigit() and len(str(c).replace('.0', '').strip()) == 4]
-    colunas_trim = [c for c in colunas_atuais if c not in colunas_anos and c != "Conta / Indicador"]
-
-    # Aplicação limpa da visão selecionada
-    if tipo_visao == "Apenas Anos Consolidados":
-        colunas_filtradas = [colunas_atuais[0]] + colunas_anos
-        df_exibicao = df_gerencial[colunas_filtradas].copy()
-    elif tipo_visao == "Apenas Trimestres":
-        colunas_filtradas = [colunas_atuais[0]] + colunas_trim
-        df_exibicao = df_gerencial[colunas_filtradas].copy()
-    else:
-        df_exibicao = df_gerencial.copy()
-
-    # Campo de busca interativa rápida
-    busca_b3 = st.text_input(
-        "🔍 Pesquisar conta ou indicador específico no DRE",
-        placeholder="Ex.: EBITDA, Despesas de Pessoal, Impostos, Lucro líquido, Intangível...",
-        key="busca_b3_tabela"
-    )
-
-    if busca_b3:
-        mascara_b3 = df_exibicao["Conta / Indicador"].astype(str).str.contains(busca_b3, case=False, na=False)
-        df_exibicao = df_exibicao[mascara_b3]
-    elif destacar_oportunidades_tabela:
-        termos_foco = ["EBITDA", "Despesas", "Lucro", "Receita Líquida", "Impostos", "Tecnologia"]
-        padrao = "|".join(termos_foco)
-        df_exibicao = df_exibicao[df_exibicao["Conta / Indicador"].astype(str).str.contains(padrao, case=False, na=False)]
-
-    # Exibição da tabela gerencial polida no Streamlit
-    st.dataframe(
-        df_exibicao,
-        use_container_width=True,
-        hide_index=True,
-        height=520,
-    )
-
-    # Botão de exportação ajustado para CSV com padrão brasileiro
-    csv_b3 = df_exibicao.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-    st.download_button(
-        "⬇️ Exportar Tabela DRE Ajustada para CSV / Excel",
-        data=csv_b3,
-        file_name="B3SA3_DRE_Gerencial_Completo.csv",
-        mime="text/csv",
-    )
-else:
+if df_num.empty:
     st.warning("⚠️ Não foi possível carregar os dados gerenciais da B3 no momento.")
+else:
+    c1, c2, c3 = st.columns([2, 2, 2])
+    with c1:
+        visao = st.radio("Visualização da tabela", ["Todos os períodos da planilha", f"Apenas o ano selecionado ({ano})"], horizontal=True)
+    with c2:
+        modo_foco = st.checkbox("🎯 Modo Foco / Auditoria", value=False)
+    with c3:
+        busca = st.text_input("🔍 Pesquisar conta", placeholder="Ex.: EBITDA, Pessoal, JCP, TI...")
 
+    # Seleção de colunas com suporte a qualquer padrão retornado pela B3
+    todas_colunas = list(df_txt.columns[1:])
+    if visao.startswith("Apenas") and str(ano) in todas_colunas:
+        colunas_exibicao = [str(ano)]
+    else:
+        colunas_exibicao = todas_colunas
 
+    df_t = df_txt[["Conta / Indicador"] + colunas_exibicao].copy()
 
+    if busca:
+        df_t = df_t[df_t["Conta / Indicador"].str.contains(busca, case=False, regex=False, na=False)]
+    elif modo_foco:
+        termos = "EBITDA|Despesa|Lucro|Receita L|Imposto|JCP|Pessoal|Tecnologia|Intang|Amortiza|Financeiro"
+        df_t = df_t[df_t["Conta / Indicador"].str.contains(termos, case=False, na=False)]
 
+    st.caption(f"Exibindo {len(df_t)} contas contábeis e operacionais.")
+    mostrar_tabela(df_t, height=520)
+
+    csv = df_t.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+    st.download_button("⬇️ Exportar DRE completo para CSV / Excel", data=csv, file_name="B3SA3_DRE_Gerencial_Completo.csv", mime="text/csv")
 
 # ======================================================================
 # GLOSSÁRIO
@@ -583,14 +501,9 @@ else:
 with st.expander("📖 Glossário analítico"):
     st.markdown("""
 **EBITDA recorrente vs. reportado:** o recorrente expurga eventos pontuais (assessorias de M&A, rescisões, provisões),
-mostrando a capacidade operacional real. A distância entre os dois indica o "ruído" do período.
+mostrando a capacidade operacional real.
 
-**Amortização de intangíveis (Cetip):** efeito contábil da aquisição, sem desembolso de caixa. Reduz o lucro, mas não a geração de caixa.
+**Amortização de intangíveis (Cetip):** efeito contábil da aquisição, sem desembolso de caixa.
 
-**Benefício fiscal do JCP:** os Juros sobre Capital Próprio são dedutíveis de IRPJ/CSLL e reduzem a alíquota efetiva da companhia.
-
-**Alavancagem operacional:** variação do EBITDA dividida pela variação da receita. Acima de 1x, a receita cresce mais rápido que o custo fixo (TI e pessoal).
-
-**Potencial de oportunidade:** classificação qualitativa do quanto cada custo é negociável (contratos de software e consultorias)
-ou estrutural (pessoal fixo, efeitos contábeis).
+**Benefício fiscal do JCP:** dedutível de IRPJ/CSLL, reduzindo a alíquota efetiva da companhia.
 """)
