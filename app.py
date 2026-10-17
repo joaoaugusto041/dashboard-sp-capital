@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from loader_b3 import carregar_dados_b3
 
 # ======================================================================
-# CONFIGURAÇÃO
+# CONFIGURAÇÃO DA PÁGINA E ESTILOS
 # ======================================================================
 st.set_page_config(page_title="Dashboard Financeiro B3SA3", page_icon="📈", layout="wide")
 
@@ -20,24 +20,13 @@ st.markdown("""
 
 COR_TOTAL, COR_QUEDA, COR_GANHO = "#1f77b4", "#d62728", "#2ca02c"
 COR_OPORT = {"Alto": "#e4572e", "Médio": "#f2b134", "Baixo": "#9aa5b1", "Nulo": "#6c8ebf"}
-ALIQUOTA_NOMINAL = 0.34  # IRPJ + CSLL, usada para estimar o efeito fiscal dos ajustes
+ALIQUOTA_NOMINAL = 0.34
 
-# ----------------------------------------------------------------------
-# MAPEAMENTO PLANILHA -> MODELO
-# ----------------------------------------------------------------------
-MAPEAMENTO_CONTAS = {
-    # "receita_bruta": r"",
-    # "deducoes": r"",
-    # "despesas": r"",
-    # "ajustes": r"",
-    # "amortizacao": r"",
-    # "financeiro": r"",
-    # "ir": r"",
-}
-ESCALA_PLANILHA_PARA_MI = 1.0  # use 0.001 se a planilha estiver em R$ mil
+MAPEAMENTO_CONTAS = {}
+ESCALA_PLANILHA_PARA_MI = 1.0
 
 ANOS_REF = [2022, 2023, 2024, 2025, 2026]
-REF = {  # R$ milhões (ilustrativo)
+REF = {
     2022: dict(receita_bruta=2420.0, deducoes=235.0, despesas=745.0, ajustes=55.0, amortizacao=118.0, financeiro=260.0, ir=118.0),
     2023: dict(receita_bruta=2590.0, deducoes=250.0, despesas=770.0, ajustes=38.0, amortizacao=121.0, financeiro=280.0, ir=112.0),
     2024: dict(receita_bruta=2740.0, deducoes=264.0, despesas=795.0, ajustes=61.0, amortizacao=123.0, financeiro=290.0, ir=109.0),
@@ -56,7 +45,7 @@ DET = {
 }
 
 # ======================================================================
-# FORMATAÇÃO PT-BR
+# FUNÇÕES DE FORMATAÇÃO E UTILITÁRIOS
 # ======================================================================
 def br(v, casas=1):
     return f"{v:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -100,7 +89,7 @@ def txt_delta(delta, ano_ant, unidade="%"):
     return f"{seta} {br(abs(delta))}{unidade} vs {ano_ant}"
 
 # ======================================================================
-# DADOS DA PLANILHA DE RI (Leitura Blindada e Completa)
+# PREPARAÇÃO E TRATAMENTO DA PLANILHA DE RI (SEM PERDAS DE COLUNAS)
 # ======================================================================
 def para_numero(v):
     nan = float("nan")
@@ -126,14 +115,18 @@ def preparar_planilha():
     raw = carregar_dados_b3()
     if raw is None:
         return pd.DataFrame(), pd.DataFrame()
+    
     cols, nomes = [0], ["Conta / Indicador"]
     for c in range(1, raw.shape[1]):
+        # Varre o cabeçalho bruto procurando rótulos de colunas válidos
         val_0 = str(raw.iloc[0, c]).strip()
         val_1 = str(raw.iloc[1, c]).strip() if raw.shape[0] > 1 else ""
         val_2 = str(raw.iloc[2, c]).strip() if raw.shape[0] > 2 else ""
         
-        rotulo = val_2 if val_2 not in ("", "nan") else (val_1 if val_1 not in ("", "nan") else val_0)
-        rotulo = rotulo[:-2] if rotulo.endswith(".0") else rotulo
+        rotulo = val_2 if val_2 not in ("", "nan", "None") else (val_1 if val_1 not in ("", "nan", "None") else val_0)
+        if rotulo.endswith(".0"):
+            rotulo = rotulo[:-2]
+        
         if rotulo and rotulo not in ("nan", "None", "Conta / Indicador"):
             cols.append(c)
             nomes.append(rotulo)
@@ -157,8 +150,8 @@ def preparar_planilha():
     return df_n, df_t
 
 df_num, df_txt = preparar_planilha()
-eh_ano = lambda c: str(c).isdigit() and len(str(c)) == 4
-anos_planilha = [int(c) for c in df_num.columns[1:] if eh_ano(c)] if not df_num.empty else []
+eh_ano = lambda c: str(c).replace('.0', '').strip().isdigit() and len(str(c).replace('.0', '').strip()) == 4
+anos_planilha = [int(str(c).replace('.0', '').strip()) for c in df_num.columns[1:] if eh_ano(c)] if not df_num.empty else []
 ANOS = sorted(set(ANOS_REF) | set(anos_planilha))
 
 def valor_planilha(chave, ano):
@@ -205,21 +198,18 @@ def montar_modelo(ano):
 MODELOS = {a: montar_modelo(a) for a in ANOS}
 
 # ======================================================================
-# CABEÇALHO E SELETOR GLOBAL
+# CONTROLE SUPERIOR
 # ======================================================================
 st.title("📊 Dashboard Financeiro B3SA3 — Auditoria de Rentabilidade")
-st.caption("Clique diretamente nas barras e fatias dos gráficos para explorar os detalhes.")
+st.caption("Clique nas barras dos gráficos para dar drill down. Utilize os seletores abaixo para personalizar a análise.")
 
 col_a, col_b = st.columns([1, 3])
 with col_a:
-    ano = st.selectbox("📅 Ano de análise", ANOS, index=len(ANOS) - 1, format_func=str)
+    ano = st.selectbox("📅 Ano de referência (KPIs e Ponte)", ANOS, index=len(ANOS) - 1, format_func=str)
+
 m = MODELOS[ano]
 ano_ant = ano - 1 if (ano - 1) in MODELOS else None
 mp = MODELOS.get(ano_ant) if ano_ant else None
-
-if m["usa_ref"]:
-    st.warning("Parte dos valores é de **referência (ilustrativa)**, pois ainda não foi mapeada para a planilha de RI. "
-               "Preencha `MAPEAMENTO_CONTAS` no topo do arquivo. Itens em referência: " + ", ".join(m["usa_ref"]) + ".")
 
 # ======================================================================
 # SEÇÃO 1: RADAR DE ALERTAS E KPIs
@@ -241,8 +231,8 @@ with k[1]:
 with k[2]:
     card("EBITDA recorrente", mi(m["ebitda_rec"]), txt_delta(d("ebitda_rec"), ano_ant), cor_delta(d("ebitda_rec")))
 with k[3]:
-    card("Margem EBITDA recorrente", f"{br(m['margem_ebitda'])}%", txt_delta(dpp("margem_ebitda"), ano_ant, " p.p."),
-         cor_delta(dpp("margem_ebitda")))
+    card("Margem EBITDA recorrente", f"{br(m['margem_ebitda'])}%", txt_delta(dpp("margem_ebitda"), ano_ant, " p.p."), cor_delta(dpp("margem_ebitda")))
+
 k = st.columns(4)
 with k[0]:
     dd, dr = d("despesas"), d("receita_liquida")
@@ -251,9 +241,7 @@ with k[0]:
 with k[1]:
     if mp and dr:
         gao = d("ebitda_rec") / dr
-        card("Alavancagem operacional", f"{br(gao, 2)}x",
-             "Positiva: EBITDA cresce mais que a receita" if gao > 1 else "Sem ganho de escala",
-             COR_GANHO if gao > 1 else COR_QUEDA)
+        card("Alavancagem operacional", f"{br(gao, 2)}x", "Positiva: EBITDA cresce mais que receita" if gao > 1 else "Sem ganho de escala", COR_GANHO if gao > 1 else COR_QUEDA)
     else:
         card("Alavancagem operacional", "—", "sem ano anterior", "#6c757d")
 with k[2]:
@@ -262,10 +250,10 @@ with k[3]:
     card("Margem líquida", f"{br(m['margem_liq'])}%", txt_delta(dpp("margem_liq"), ano_ant, " p.p."), cor_delta(dpp("margem_liq")))
 
 # ======================================================================
-# SEÇÃO 2: PONTE DE RESULTADO INTERATIVA
+# SEÇÃO 2: PONTE DE RESULTADO (WATERFALL INTERATIVO POR CLIQUE)
 # ======================================================================
 st.markdown("---")
-st.subheader("🌉 Ponte de Resultado — clique em uma barra marcada com ▸ para expandir")
+st.subheader("🌉 Ponte de Resultado — Clique na barra para expandir os subníveis")
 
 st.session_state.setdefault("drill", None)
 st.session_state.setdefault("ver", 0)
@@ -354,7 +342,7 @@ if pontos and not st.session_state["drill"]:
         st.rerun()
 
 # ======================================================================
-# SEÇÃO 3: ANÁLISES COMPLEMENTARES
+# SEÇÃO 3: ANÁLISES COMPLEMENTARES DE MIDDLE-LINE
 # ======================================================================
 st.markdown("---")
 st.subheader("📈 Análises Complementares de Middle-Line")
@@ -458,52 +446,63 @@ with abas[5]:
         st.info("Selecione um ano com ano anterior disponível para ver a variação.")
 
 # ======================================================================
-# SEÇÃO 4: DRE GERENCIAL COMPLETO (Exibição Garantida)
+# SEÇÃO 4: DRE GERENCIAL COMPLETO (COM FILTRO MULTI-ANO)
 # ======================================================================
 st.markdown("---")
 st.subheader("📋 DRE Gerencial Completo — B3 (API RI)")
 
-if df_num.empty:
+if df_txt.empty:
     st.warning("⚠️ Não foi possível carregar os dados gerenciais da B3 no momento.")
 else:
-    c1, c2, c3 = st.columns([2, 2, 2])
-    with c1:
-        visao = st.radio("Visualização da tabela", ["Todos os períodos da planilha", f"Apenas o ano selecionado ({ano})"], horizontal=True)
-    with c2:
-        modo_foco = st.checkbox("🎯 Modo Foco / Auditoria", value=False)
-    with c3:
+    col_t1, col_t2, col_t3 = st.columns([3, 1.5, 2])
+    
+    # Todas as colunas disponíveis na planilha (com exceção de 'Conta / Indicador')
+    todas_colunas_planilha = list(df_txt.columns[1:])
+    
+    with col_t1:
+        # SELETOR MÚLTIPLO: Permite escolher um ou vários anos/períodos simultaneamente
+        colunas_selecionadas = st.multiselect(
+            "📅 Selecione os anos/períodos para exibir na tabela:",
+            options=todas_colunas_planilha,
+            default=todas_colunas_planilha,  # Exibe todos os anos por padrão
+            help="Selecione vários anos para comparar lado a lado na tabela."
+        )
+    
+    with col_t2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        modo_foco = st.checkbox("🎯 Modo Foco", value=False)
+        
+    with col_t3:
         busca = st.text_input("🔍 Pesquisar conta", placeholder="Ex.: EBITDA, Pessoal, JCP, TI...")
 
-    # Seleção de colunas com suporte a qualquer padrão retornado pela B3
-    todas_colunas = list(df_txt.columns[1:])
-    if visao.startswith("Apenas") and str(ano) in todas_colunas:
-        colunas_exibicao = [str(ano)]
-    else:
-        colunas_exibicao = todas_colunas
+    # Garante que ao menos uma coluna seja exibida se o usuário desmarcar tudo
+    if not colunas_selecionadas:
+        colunas_selecionadas = todas_colunas_planilha
 
-    df_t = df_txt[["Conta / Indicador"] + colunas_exibicao].copy()
+    # Monta a tabela filtrada com a coluna de contas + os anos escolhidos
+    df_exibicao = df_txt[["Conta / Indicador"] + colunas_selecionadas].copy()
 
     if busca:
-        df_t = df_t[df_t["Conta / Indicador"].str.contains(busca, case=False, regex=False, na=False)]
+        df_exibicao = df_exibicao[df_exibicao["Conta / Indicador"].str.contains(busca, case=False, regex=False, na=False)]
     elif modo_foco:
         termos = "EBITDA|Despesa|Lucro|Receita L|Imposto|JCP|Pessoal|Tecnologia|Intang|Amortiza|Financeiro"
-        df_t = df_t[df_t["Conta / Indicador"].str.contains(termos, case=False, na=False)]
+        df_exibicao = df_exibicao[df_exibicao["Conta / Indicador"].str.contains(termos, case=False, na=False)]
 
-    st.caption(f"Exibindo {len(df_t)} contas contábeis e operacionais.")
-    mostrar_tabela(df_t, height=520)
+    st.caption(f"Exibindo {len(df_exibicao)} contas contábeis para {len(colunas_selecionadas)} período(s) selecionado(s).")
+    mostrar_tabela(df_exibicao, height=520)
 
-    csv = df_t.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-    st.download_button("⬇️ Exportar DRE completo para CSV / Excel", data=csv, file_name="B3SA3_DRE_Gerencial_Completo.csv", mime="text/csv")
+    csv = df_exibicao.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+    st.download_button("⬇️ Exportar DRE Selecionado para CSV / Excel", data=csv, file_name="B3SA3_DRE_Gerencial.csv", mime="text/csv")
 
 # ======================================================================
-# GLOSSÁRIO
+# GLOSSÁRIO ANALÍTICO
 # ======================================================================
 with st.expander("📖 Glossário analítico"):
     st.markdown("""
 **EBITDA recorrente vs. reportado:** o recorrente expurga eventos pontuais (assessorias de M&A, rescisões, provisões),
-mostrando a capacidade operacional real.
+mostrando a capacidade operacional real da B3.
 
-**Amortização de intangíveis (Cetip):** efeito contábil da aquisição, sem desembolso de caixa.
+**Amortização de intangíveis (Cetip):** efeito contábil sem desembolso de caixa.
 
-**Benefício fiscal do JCP:** dedutível de IRPJ/CSLL, reduzindo a alíquota efetiva da companhia.
+**Benefício fiscal do JCP:** reduz a alíquota efetiva de IRPJ/CSLL através da distribuição de proventos dedutíveis.
 """)
