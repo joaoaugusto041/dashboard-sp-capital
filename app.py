@@ -147,24 +147,9 @@ def preparar_planilha():
         trim = str(raw.iloc[2, c]).strip()
         rotulo = trim if trim not in ("", "nan") else ano  # mesma lógica do código original
         rotulo = rotulo[:-2] if rotulo.endswith(".0") else rotulo
-        if rotulo.isdigit() and len(rotulo) == 4:  # mantém apenas anos
+        if rotulo not in ("", "nan", "None"):
             cols.append(c)
             nomes.append(rotulo)
-    if len(cols) == 1:  # 2ª tentativa: extrai o ano de rótulos como "2024A", "12M24", "Ano 2024"
-        import re
-        for c in range(1, raw.shape[1]):
-            achou = None
-            for lin in (1, 2):
-                t = str(raw.iloc[lin, c]).strip()
-                if re.search(r"(\dT|T\d|Q\d|\dQ|trim)", t, re.I):
-                    achou = None
-                    break
-                mm = re.search(r"(20\d{2})", t)
-                if mm and not achou:
-                    achou = mm.group(1)
-            if achou and achou not in nomes:
-                cols.append(c)
-                nomes.append(achou)
     df = raw.iloc[3:, cols].copy()
     df.columns = nomes
     df = df.loc[:, ~df.columns.duplicated()]
@@ -185,7 +170,8 @@ def preparar_planilha():
 
 
 df_num, df_txt = preparar_planilha()
-anos_planilha = [int(c) for c in df_num.columns[1:]] if not df_num.empty else []
+eh_ano = lambda c: str(c).isdigit() and len(str(c)) == 4
+anos_planilha = [int(c) for c in df_num.columns[1:] if eh_ano(c)] if not df_num.empty else []
 ANOS = sorted(set(ANOS_REF) | set(anos_planilha))
 
 
@@ -535,7 +521,13 @@ else:
     with c3:
         busca = st.text_input("🔍 Pesquisar conta", placeholder="Ex.: EBITDA, Pessoal, JCP, TI...")
 
-    cols_ano = [c for c in df_num.columns[1:]]
+    cols_anuais = [c for c in df_num.columns[1:] if eh_ano(c)]
+    if cols_anuais:
+        cols_ano = cols_anuais
+    else:
+        cols_ano = list(df_num.columns[1:])
+        st.warning("Não identifiquei colunas de ano (4 dígitos) na planilha; exibindo todas as colunas lidas. "
+                   "Abra o diagnóstico abaixo para ver os rótulos.")
     if visao != "Todos os anos" and str(ano) in cols_ano:
         cols_ano = [str(ano)]
     df_t = df_txt[["Conta / Indicador"] + cols_ano].copy()
@@ -546,14 +538,14 @@ else:
         termos = "EBITDA|Despesa|Lucro|Receita L|Imposto|JCP|Pessoal|Tecnologia|Intang|Amortiza|Financeiro"
         df_t = df_t[df_t["Conta / Indicador"].str.contains(termos, case=False, na=False)]
 
-    st.caption("Versão do app: v4 · se esta linha não aparecer, o Streamlit ainda está rodando o arquivo antigo.")
+    st.caption("Versão do app: v5 · se esta linha não aparecer, o Streamlit ainda está rodando o arquivo antigo.")
     with st.expander("🛠️ Diagnóstico da leitura da planilha", expanded=not cols_ano):
         _raw = carregar_dados_b3()
         if _raw is None:
             st.write("`carregar_dados_b3()` retornou `None`.")
         else:
             st.write(f"Dimensão bruta: {_raw.shape[0]} linhas × {_raw.shape[1]} colunas. "
-                     f"Colunas anuais detectadas: {list(df_num.columns[1:])}")
+                     f"Colunas lidas: {list(df_num.columns[1:])}")
             st.dataframe(_raw.iloc[:6, :16].astype(str))
     if not cols_ano:
         st.error("Nenhuma coluna de ano foi identificada na planilha. Veja abaixo as primeiras linhas brutas "
