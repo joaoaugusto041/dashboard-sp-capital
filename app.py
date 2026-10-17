@@ -504,60 +504,78 @@ with abas[5]:
     else:
         st.info("Selecione um ano com ano anterior disponível para ver a variação.")
 
-# ======================================================================
-# SEÇÃO 4: DRE GERENCIAL (somente anos)
-# ======================================================================
+
+# --------------------------------------------------
+# DRE GERENCIAL COMPLETO (B3 - API RI)
+# --------------------------------------------------
 st.markdown("---")
 st.subheader("📋 DRE Gerencial Completo — B3 (API RI)")
+st.markdown("🔎 *Ferramentas de Análise:* Utilize os seletores abaixo para alternar entre a visão anual consolidada ou trimestral, e pesquise contas específicas para auditoria.")
 
-if df_num.empty:
-    st.warning("⚠️ Não foi possível carregar os dados gerenciais da B3 no momento.")
-else:
-    c1, c2, c3 = st.columns([2, 2, 2])
-    with c1:
-        visao = st.radio("Colunas da tabela", ["Todos os anos", f"Apenas {ano}"], horizontal=True)
-    with c2:
-        modo_foco = st.checkbox("🎯 Modo Foco / Auditoria", value=False)
-    with c3:
-        busca = st.text_input("🔍 Pesquisar conta", placeholder="Ex.: EBITDA, Pessoal, JCP, TI...")
+if df_b3_raw is not None and not df_gerencial.empty:
+    
+    col_sel1, col_sel2 = st.columns([2, 2])
+    with col_sel1:
+        tipo_visao = st.selectbox(
+            "🎛️ Visão Temporal da Tabela",
+            ["Visão Completa (Trimestres e Anos)", "Apenas Anos Consolidados", "Apenas Trimestres"],
+            index=0
+        )
+    with col_sel2:
+        destacar_oportunidades_tabela = st.checkbox("🎯 Modo Foco / Auditoria de Middle-Line", value=False)
 
-    cols_anuais = [c for c in df_num.columns[1:] if eh_ano(c)]
-    if cols_anuais:
-        cols_ano = cols_anuais
+    # Identificação exata das colunas de anos (estritamente 4 dígitos numéricos)
+    colunas_atuais = df_gerencial.columns.tolist()
+    colunas_anos = [c for c in colunas_atuais if str(c).replace('.0', '').strip().isdigit() and len(str(c).replace('.0', '').strip()) == 4]
+    colunas_trim = [c for c in colunas_atuais if c not in colunas_anos and c != "Conta / Indicador"]
+
+    # Aplicação limpa da visão selecionada
+    if tipo_visao == "Apenas Anos Consolidados":
+        colunas_filtradas = [colunas_atuais[0]] + colunas_anos
+        df_exibicao = df_gerencial[colunas_filtradas].copy()
+    elif tipo_visao == "Apenas Trimestres":
+        colunas_filtradas = [colunas_atuais[0]] + colunas_trim
+        df_exibicao = df_gerencial[colunas_filtradas].copy()
     else:
-        cols_ano = list(df_num.columns[1:])
-        st.warning("Não identifiquei colunas de ano (4 dígitos) na planilha; exibindo todas as colunas lidas. "
-                   "Abra o diagnóstico abaixo para ver os rótulos.")
-    if visao != "Todos os anos" and str(ano) in cols_ano:
-        cols_ano = [str(ano)]
-    df_t = df_txt[["Conta / Indicador"] + cols_ano].copy()
+        df_exibicao = df_gerencial.copy()
 
-    if busca:
-        df_t = df_t[df_t["Conta / Indicador"].str.contains(busca, case=False, regex=False, na=False)]
-    elif modo_foco:
-        termos = "EBITDA|Despesa|Lucro|Receita L|Imposto|JCP|Pessoal|Tecnologia|Intang|Amortiza|Financeiro"
-        df_t = df_t[df_t["Conta / Indicador"].str.contains(termos, case=False, na=False)]
+    # Campo de busca interativa rápida
+    busca_b3 = st.text_input(
+        "🔍 Pesquisar conta ou indicador específico no DRE",
+        placeholder="Ex.: EBITDA, Despesas de Pessoal, Impostos, Lucro líquido, Intangível...",
+        key="busca_b3_tabela"
+    )
 
-    st.caption("Versão do app: v5 · se esta linha não aparecer, o Streamlit ainda está rodando o arquivo antigo.")
-    with st.expander("🛠️ Diagnóstico da leitura da planilha", expanded=not cols_ano):
-        _raw = carregar_dados_b3()
-        if _raw is None:
-            st.write("`carregar_dados_b3()` retornou `None`.")
-        else:
-            st.write(f"Dimensão bruta: {_raw.shape[0]} linhas × {_raw.shape[1]} colunas. "
-                     f"Colunas lidas: {list(df_num.columns[1:])}")
-            st.dataframe(_raw.iloc[:6, :16].astype(str))
-    if not cols_ano:
-        st.error("Nenhuma coluna de ano foi identificada na planilha. Veja abaixo as primeiras linhas brutas "
-                 "e me envie uma captura para ajustar a leitura.")
-        _raw = carregar_dados_b3()
-        if _raw is not None:
-            st.dataframe(_raw.iloc[:6, :14].astype(str))
-    st.caption(f"{len(df_t)} contas · {len(cols_ano)} período(s) anual(is): {', '.join(cols_ano)}")
-    mostrar_tabela(df_t, height=520)
+    if busca_b3:
+        mascara_b3 = df_exibicao["Conta / Indicador"].astype(str).str.contains(busca_b3, case=False, na=False)
+        df_exibicao = df_exibicao[mascara_b3]
+    elif destacar_oportunidades_tabela:
+        termos_foco = ["EBITDA", "Despesas", "Lucro", "Receita Líquida", "Impostos", "Tecnologia"]
+        padrao = "|".join(termos_foco)
+        df_exibicao = df_exibicao[df_exibicao["Conta / Indicador"].astype(str).str.contains(padrao, case=False, na=False)]
 
-    csv = df_t.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-    st.download_button("⬇️ Exportar tabela para CSV / Excel", data=csv, file_name="B3SA3_DRE_Gerencial.csv", mime="text/csv")
+    # Exibição da tabela gerencial polida no Streamlit
+    st.dataframe(
+        df_exibicao,
+        use_container_width=True,
+        hide_index=True,
+        height=520,
+    )
+
+    # Botão de exportação ajustado para CSV com padrão brasileiro
+    csv_b3 = df_exibicao.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+    st.download_button(
+        "⬇️ Exportar Tabela DRE Ajustada para CSV / Excel",
+        data=csv_b3,
+        file_name="B3SA3_DRE_Gerencial_Completo.csv",
+        mime="text/csv",
+    )
+else:
+    st.warning("⚠️ Não foi possível carregar os dados gerenciais da B3 no momento.")
+
+
+
+
 
 # ======================================================================
 # GLOSSÁRIO
