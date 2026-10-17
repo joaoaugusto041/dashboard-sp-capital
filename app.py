@@ -154,7 +154,7 @@ def preparar_planilha():
         import re
         for c in range(1, raw.shape[1]):
             achou = None
-            for lin in (1, 2, 0):
+            for lin in (1, 2):
                 t = str(raw.iloc[lin, c]).strip()
                 if re.search(r"(\dT|T\d|Q\d|\dQ|trim)", t, re.I):
                     achou = None
@@ -546,6 +546,15 @@ else:
         termos = "EBITDA|Despesa|Lucro|Receita L|Imposto|JCP|Pessoal|Tecnologia|Intang|Amortiza|Financeiro"
         df_t = df_t[df_t["Conta / Indicador"].str.contains(termos, case=False, na=False)]
 
+    st.caption("Versão do app: v4 · se esta linha não aparecer, o Streamlit ainda está rodando o arquivo antigo.")
+    with st.expander("🛠️ Diagnóstico da leitura da planilha", expanded=not cols_ano):
+        _raw = carregar_dados_b3()
+        if _raw is None:
+            st.write("`carregar_dados_b3()` retornou `None`.")
+        else:
+            st.write(f"Dimensão bruta: {_raw.shape[0]} linhas × {_raw.shape[1]} colunas. "
+                     f"Colunas anuais detectadas: {list(df_num.columns[1:])}")
+            st.dataframe(_raw.iloc[:6, :16].astype(str))
     if not cols_ano:
         st.error("Nenhuma coluna de ano foi identificada na planilha. Veja abaixo as primeiras linhas brutas "
                  "e me envie uma captura para ajustar a leitura.")
