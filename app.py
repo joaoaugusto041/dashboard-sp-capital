@@ -150,6 +150,21 @@ def preparar_planilha():
         if rotulo.isdigit() and len(rotulo) == 4:  # mantém apenas anos
             cols.append(c)
             nomes.append(rotulo)
+    if len(cols) == 1:  # 2ª tentativa: extrai o ano de rótulos como "2024A", "12M24", "Ano 2024"
+        import re
+        for c in range(1, raw.shape[1]):
+            achou = None
+            for lin in (1, 2, 0):
+                t = str(raw.iloc[lin, c]).strip()
+                if re.search(r"(\dT|T\d|Q\d|\dQ|trim)", t, re.I):
+                    achou = None
+                    break
+                mm = re.search(r"(20\d{2})", t)
+                if mm and not achou:
+                    achou = mm.group(1)
+            if achou and achou not in nomes:
+                cols.append(c)
+                nomes.append(achou)
     df = raw.iloc[3:, cols].copy()
     df.columns = nomes
     df = df.loc[:, ~df.columns.duplicated()]
@@ -531,6 +546,12 @@ else:
         termos = "EBITDA|Despesa|Lucro|Receita L|Imposto|JCP|Pessoal|Tecnologia|Intang|Amortiza|Financeiro"
         df_t = df_t[df_t["Conta / Indicador"].str.contains(termos, case=False, na=False)]
 
+    if not cols_ano:
+        st.error("Nenhuma coluna de ano foi identificada na planilha. Veja abaixo as primeiras linhas brutas "
+                 "e me envie uma captura para ajustar a leitura.")
+        _raw = carregar_dados_b3()
+        if _raw is not None:
+            st.dataframe(_raw.iloc[:6, :14].astype(str))
     st.caption(f"{len(df_t)} contas · {len(cols_ano)} período(s) anual(is): {', '.join(cols_ano)}")
     mostrar_tabela(df_t, height=520)
 
